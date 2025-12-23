@@ -1,0 +1,64 @@
+use super::{
+    Base64Parser, CidrParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
+};
+
+/// 解析引擎，管理所有解析器
+pub struct ParserEngine {
+    parsers: Vec<Box<dyn Parser>>,
+}
+
+impl ParserEngine {
+    pub fn new() -> Self {
+        // 解析器顺序很重要：更具体的解析器应该放在前面
+        let parsers: Vec<Box<dyn Parser>> = vec![
+            Box::new(CidrParser::new()),       // CIDR 网段（含 /xx 后缀）
+            Box::new(UuidParser::new()),       // 精确格式
+            Box::new(ObjectIdParser::new()),   // 精确格式 (24 位 hex)
+            Box::new(IpParser::new()),         // 精确格式（仅公网 IP）
+            Box::new(TimestampParser::new()),  // 纯数字，长度限定
+            Box::new(JsonParser::new()),       // 以 { 或 [ 开头
+            Box::new(Base64Parser::new()),     // 通用 base64
+        ];
+
+        Self { parsers }
+    }
+
+    /// 获取所有解析器名称
+    pub fn parser_names(&self) -> Vec<&'static str> {
+        self.parsers.iter().map(|p| p.name()).collect()
+    }
+
+    /// 尝试用所有解析器解析，返回第一个成功的结果
+    pub fn parse(&self, content: &str) -> Option<ParseResult> {
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        for parser in &self.parsers {
+            if let Some(result) = parser.parse(trimmed) {
+                return Some(result);
+            }
+        }
+        None
+    }
+
+    /// 尝试用所有解析器解析内容，返回所有成功的结果
+    pub fn parse_all(&self, content: &str) -> Vec<ParseResult> {
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+
+        self.parsers
+            .iter()
+            .filter_map(|parser| parser.parse(trimmed))
+            .collect()
+    }
+}
+
+impl Default for ParserEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
