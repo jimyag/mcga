@@ -1,4 +1,3 @@
-mod base64;
 mod cidr;
 mod engine;
 mod ip;
@@ -7,7 +6,6 @@ mod objectid;
 mod timestamp;
 mod uuid;
 
-pub use base64::Base64Parser;
 pub use cidr::CidrParser;
 pub use engine::ParserEngine;
 pub use ip::IpParser;

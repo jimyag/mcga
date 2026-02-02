@@ -1,5 +1,5 @@
 use super::{
-    Base64Parser, CidrParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
+    CidrParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -17,7 +17,6 @@ impl ParserEngine {
             Box::new(IpParser::new()),         // 精确格式（仅公网 IP）
             Box::new(TimestampParser::new()),  // 纯数字，长度限定
             Box::new(JsonParser::new()),       // 以 { 或 [ 开头
-            Box::new(Base64Parser::new()),     // 通用 base64
         ];
 
         Self { parsers }
