@@ -55,21 +55,26 @@ impl Parser for JsonParser {
         "JSON"
     }
 
-    fn parse(&self, content: &str) -> Option<ParseResult> {
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
         // 快速检查：必须以 { 或 [ 开头
         let trimmed = content.trim();
         if !trimmed.starts_with('{') && !trimmed.starts_with('[') {
-            return None;
+            return vec![];
         }
 
-        let value: Value = serde_json::from_str(content).ok()?;
-        
+        let value: Value = match serde_json::from_str(content) {
+            Ok(v) => v,
+            Err(_) => return vec![],
+        };
+
         let type_info = Self::get_json_info(&value);
         let element_count = Self::count_elements(&value);
         let depth = Self::get_depth(&value);
 
-        // 格式化 JSON（限制长度）
-        let formatted = serde_json::to_string_pretty(&value).ok()?;
+        let formatted = match serde_json::to_string_pretty(&value) {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
         let preview = if formatted.len() > 500 {
             format!("{}...", &formatted[..500])
         } else {
@@ -85,10 +90,10 @@ impl Parser for JsonParser {
             preview
         );
 
-        Some(
+        vec![
             ParseResult::new("JSON", content, format!("类型：{}\n元素数：{}\n嵌套深度：{}", type_info, element_count, depth))
                 .with_details(details),
-        )
+        ]
     }
 }
 

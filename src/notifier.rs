@@ -30,11 +30,7 @@ impl Notifier {
     pub fn send(&self, result: &ParseResult) -> Result<()> {
         let summary = format!("[{}] {}", result.parser_name, &result.original[..result.original.len().min(30)]);
         
-        let mut body = result.parsed.clone();
-        if let Some(ref details) = result.details {
-            body.push_str("\n\n");
-            body.push_str(details);
-        }
+        let body = result.parsed.clone();
 
         Notification::new()
             .appname(&self.app_name)

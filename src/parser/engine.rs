@@ -1,5 +1,5 @@
 use super::{
-    CidrParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
+    CidrParser, DnsParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -17,6 +17,7 @@ impl ParserEngine {
             Box::new(IpParser::new()),         // 精确格式（仅公网 IP）
             Box::new(TimestampParser::new()),  // 纯数字，长度限定
             Box::new(JsonParser::new()),       // 以 { 或 [ 开头
+            Box::new(DnsParser::new()),        // 域名 DoH 查询（Cloudflare / AliDNS）
         ];
 
         Self { parsers }
@@ -35,8 +36,9 @@ impl ParserEngine {
         }
 
         for parser in &self.parsers {
-            if let Some(result) = parser.parse(trimmed) {
-                return Some(result);
+            let results = parser.parse(trimmed);
+            if !results.is_empty() {
+                return results.into_iter().next();
             }
         }
         None
@@ -51,7 +53,7 @@ impl ParserEngine {
 
         self.parsers
             .iter()
-            .filter_map(|parser| parser.parse(trimmed))
+            .flat_map(|parser| parser.parse(trimmed))
             .collect()
     }
 }

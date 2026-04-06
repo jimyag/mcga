@@ -71,22 +71,25 @@ impl Parser for TimestampParser {
         "Timestamp"
     }
 
-    fn parse(&self, content: &str) -> Option<ParseResult> {
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
         // 只解析纯数字
-        let ts: i64 = content.parse().ok()?;
+        let ts: i64 = match content.parse() {
+            Ok(v) => v,
+            Err(_) => return vec![],
+        };
         let len = content.len();
 
         let (datetime, unit) = match len {
-            10 => (self.parse_unix_seconds(ts)?, "秒"),
-            13 => (self.parse_unix_millis(ts)?, "毫秒"),
-            16 => (self.parse_unix_micros(ts)?, "微秒"),
-            17 => (self.parse_unix_100nanos(ts)?, "百纳秒"),
-            19 => (self.parse_unix_nanos(ts)?, "纳秒"),
-            _ => return None,
+            10 => match self.parse_unix_seconds(ts) { Some(d) => (d, "秒"), None => return vec![] },
+            13 => match self.parse_unix_millis(ts)  { Some(d) => (d, "毫秒"), None => return vec![] },
+            16 => match self.parse_unix_micros(ts)  { Some(d) => (d, "微秒"), None => return vec![] },
+            17 => match self.parse_unix_100nanos(ts){ Some(d) => (d, "百纳秒"), None => return vec![] },
+            19 => match self.parse_unix_nanos(ts)   { Some(d) => (d, "纳秒"), None => return vec![] },
+            _ => return vec![],
         };
 
         let local_time = datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC");
-        
+
         let details = format!(
             "原始值：{}\n精度：{}\nUTC: {}\nISO 8601: {}",
             ts,
@@ -95,14 +98,14 @@ impl Parser for TimestampParser {
             datetime.to_rfc3339()
         );
 
-        Some(
+        vec![
             ParseResult::new(
                 "Timestamp",
                 content,
                 format!("精度：{}\n时间：{}", unit, local_time),
             )
             .with_details(details),
-        )
+        ]
     }
 }
 

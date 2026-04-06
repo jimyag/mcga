@@ -63,9 +63,12 @@ impl Parser for ObjectIdParser {
         "ObjectID"
     }
 
-    fn parse(&self, content: &str) -> Option<ParseResult> {
-        let info = self.parse_objectid(content)?;
-        
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
+        let info = match self.parse_objectid(content) {
+            Some(i) => i,
+            None => return vec![],
+        };
+
         let parsed = format!(
             "创建时间: {}\n随机值: {}\n计数器: {}",
             info.datetime.format("%Y-%m-%d %H:%M:%S UTC"),
@@ -79,7 +82,7 @@ impl Parser for ObjectIdParser {
             info.datetime.to_rfc3339()
         );
 
-        Some(ParseResult::new("ObjectID", content, parsed).with_details(details))
+        vec![ParseResult::new("ObjectID", content, parsed).with_details(details)]
     }
 }
 

@@ -99,15 +99,18 @@ impl Parser for CidrParser {
         "CIDR"
     }
 
-    fn parse(&self, content: &str) -> Option<ParseResult> {
-        let info = self.parse_cidr(content)?;
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
+        let info = match self.parse_cidr(content) {
+            Some(i) => i,
+            None => return vec![],
+        };
 
         let mut parsed = String::new();
 
         // /0 默认路由特殊处理
         if info.prefix_len == 0 {
             parsed.push_str("默认路由（所有地址）");
-            return Some(ParseResult::new("CIDR", content, parsed));
+            return vec![ParseResult::new("CIDR", content, parsed)];
         }
 
         // 如果输入不是标准网络地址，提示
@@ -120,18 +123,15 @@ impl Parser for CidrParser {
 
         match info.prefix_len {
             32 => {
-                // /32 单主机
                 parsed.push_str(&format!("单主机地址：{}", info.network_addr));
             }
             31 => {
-                // /31 点对点链路
                 parsed.push_str(&format!(
                     "点对点链路（RFC 3021）\n可用范围：{} - {} ({})",
                     info.first_usable, info.last_usable, info.usable_count
                 ));
             }
             _ => {
-                // 正常网段
                 parsed.push_str(&format!(
                     "网络地址：{}\n广播地址：{}\n可用范围：{} - {} ({})",
                     info.network_addr,
@@ -143,7 +143,7 @@ impl Parser for CidrParser {
             }
         }
 
-        Some(ParseResult::new("CIDR", content, parsed))
+        vec![ParseResult::new("CIDR", content, parsed)]
     }
 }
 

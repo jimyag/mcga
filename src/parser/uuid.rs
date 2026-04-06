@@ -123,8 +123,11 @@ impl Parser for UuidParser {
         "UUID"
     }
 
-    fn parse(&self, content: &str) -> Option<ParseResult> {
-        let uuid = Uuid::parse_str(content).ok()?;
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
+        let uuid = match Uuid::parse_str(content) {
+            Ok(u) => u,
+            Err(_) => return vec![],
+        };
         
         let version_num = uuid.get_version_num();
         let version_info = Self::get_version_info(&uuid);
@@ -194,9 +197,9 @@ impl Parser for UuidParser {
             }
         }
 
-        Some(
+        vec![
             ParseResult::new("UUID", content, format!("{}{}", version_info, time_info))
                 .with_details(details),
-        )
+        ]
     }
 }

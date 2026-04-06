@@ -1,4 +1,5 @@
 mod cidr;
+mod dns;
 mod engine;
 mod ip;
 mod json;
@@ -7,6 +8,7 @@ mod timestamp;
 mod uuid;
 
 pub use cidr::CidrParser;
+pub use dns::DnsParser;
 pub use engine::ParserEngine;
 pub use ip::IpParser;
 pub use json::JsonParser;
@@ -48,7 +50,7 @@ pub trait Parser: Send + Sync {
     /// 解析器名称
     fn name(&self) -> &'static str;
 
-    /// 尝试解析内容
-    fn parse(&self, content: &str) -> Option<ParseResult>;
+    /// 尝试解析内容，返回零个或多个结果
+    fn parse(&self, content: &str) -> Vec<ParseResult>;
 }
 
