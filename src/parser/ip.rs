@@ -62,10 +62,10 @@ impl IpParser {
             "http://ip-api.com/json/{}?fields=status,message,country,city,isp,reverse,query&lang=zh-CN",
             ip
         );
-        
+
         let response = self.client.get(&url).send().ok()?;
         let data: IpApiResponse = response.json().ok()?;
-        
+
         if data.status == "success" {
             Some(data)
         } else {
@@ -75,7 +75,7 @@ impl IpParser {
 
     fn parse_ipv4(&self, content: &str) -> Option<ParseResult> {
         let addr: Ipv4Addr = content.parse().ok()?;
-        
+
         if Self::is_private_ipv4(&addr) {
             return None;
         }
@@ -118,12 +118,12 @@ impl IpParser {
                     parsed.push_str(&format!("反向 DNS：{}", reverse));
                 }
             }
-            
+
             if !parsed.is_empty() {
                 details.push_str(&format!("\n\n地理位置信息：\n{}", parsed));
             }
         }
-        
+
         if parsed.is_empty() {
             parsed = "公网 IP".to_string();
         }
@@ -145,7 +145,8 @@ impl IpParser {
         };
 
         let segments = addr.segments();
-        let mut details = format!(
+        let mut details =
+            format!(
             "类型：{}\n段：{:?}\n完整格式：{:04x}:{:04x}:{:04x}:{:04x}:{:04x}:{:04x}:{:04x}:{:04x}",
             ip_type,
             segments,
@@ -165,19 +166,25 @@ impl IpParser {
                 }
                 if let Some(city) = &info.city {
                     if !city.is_empty() {
-                        if !geo.is_empty() { geo.push('\n'); }
+                        if !geo.is_empty() {
+                            geo.push('\n');
+                        }
                         geo.push_str(&format!("城市：{}", city));
                     }
                 }
                 if let Some(isp) = &info.isp {
                     if !isp.is_empty() {
-                        if !geo.is_empty() { geo.push('\n'); }
+                        if !geo.is_empty() {
+                            geo.push('\n');
+                        }
                         geo.push_str(&format!("ISP：{}", isp));
                     }
                 }
                 if let Some(reverse) = &info.reverse {
                     if !reverse.is_empty() {
-                        if !geo.is_empty() { geo.push('\n'); }
+                        if !geo.is_empty() {
+                            geo.push('\n');
+                        }
                         geo.push_str(&format!("反向 DNS：{}", reverse));
                     }
                 }
@@ -214,4 +221,3 @@ impl Parser for IpParser {
         vec![]
     }
 }
-

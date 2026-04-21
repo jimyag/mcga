@@ -24,21 +24,15 @@ impl JsonParser {
     fn count_elements(value: &Value) -> usize {
         match value {
             Value::Array(arr) => arr.iter().map(Self::count_elements).sum::<usize>() + arr.len(),
-            Value::Object(obj) => {
-                obj.values().map(Self::count_elements).sum::<usize>() + obj.len()
-            }
+            Value::Object(obj) => obj.values().map(Self::count_elements).sum::<usize>() + obj.len(),
             _ => 1,
         }
     }
 
     fn get_depth(value: &Value) -> usize {
         match value {
-            Value::Array(arr) => {
-                1 + arr.iter().map(Self::get_depth).max().unwrap_or(0)
-            }
-            Value::Object(obj) => {
-                1 + obj.values().map(Self::get_depth).max().unwrap_or(0)
-            }
+            Value::Array(arr) => 1 + arr.iter().map(Self::get_depth).max().unwrap_or(0),
+            Value::Object(obj) => 1 + obj.values().map(Self::get_depth).max().unwrap_or(0),
             _ => 0,
         }
     }
@@ -90,10 +84,14 @@ impl Parser for JsonParser {
             preview
         );
 
-        vec![
-            ParseResult::new("JSON", content, format!("类型：{}\n元素数：{}\n嵌套深度：{}", type_info, element_count, depth))
-                .with_details(details),
-        ]
+        vec![ParseResult::new(
+            "JSON",
+            content,
+            format!(
+                "类型：{}\n元素数：{}\n嵌套深度：{}",
+                type_info, element_count, depth
+            ),
+        )
+        .with_details(details)]
     }
 }
-

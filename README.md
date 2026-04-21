@@ -47,6 +47,8 @@ cargo build --target x86_64-pc-windows-gnu --release
 
 ## 使用
 
+> macOS 下通知通过系统自带的 `osascript` 发送，需确保“终端”或你使用的终端应用已在系统通知设置中允许通知。
+
 ### 守护进程模式
 
 ```bash

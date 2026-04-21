@@ -146,4 +146,3 @@ impl Parser for CidrParser {
         vec![ParseResult::new("CIDR", content, parsed)]
     }
 }
-

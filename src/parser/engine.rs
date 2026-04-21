@@ -1,5 +1,4 @@
 use super::{
-    CidrParser, DnsParser, IpParser, JsonParser, ObjectIdParser, ParseResult, Parser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -11,13 +10,13 @@ impl ParserEngine {
     pub fn new() -> Self {
         // 解析器顺序很重要：更具体的解析器应该放在前面
         let parsers: Vec<Box<dyn Parser>> = vec![
-            Box::new(CidrParser::new()),       // CIDR 网段（含 /xx 后缀）
-            Box::new(UuidParser::new()),       // 精确格式
-            Box::new(ObjectIdParser::new()),   // 精确格式 (24 位 hex)
-            Box::new(IpParser::new()),         // 精确格式（仅公网 IP）
-            Box::new(TimestampParser::new()),  // 纯数字，长度限定
-            Box::new(JsonParser::new()),       // 以 { 或 [ 开头
-            Box::new(DnsParser::new()),        // 域名 DoH 查询（Cloudflare / AliDNS）
+            Box::new(CidrParser::new()),      // CIDR 网段（含 /xx 后缀）
+            Box::new(UuidParser::new()),      // 精确格式
+            Box::new(ObjectIdParser::new()),  // 精确格式 (24 位 hex)
+            Box::new(IpParser::new()),        // 精确格式（仅公网 IP）
+            Box::new(TimestampParser::new()), // 纯数字，长度限定
+            Box::new(JsonParser::new()),      // 以 { 或 [ 开头
+            Box::new(DnsParser::new()),       // 域名 DoH 查询（Cloudflare / AliDNS）
         ];
 
         Self { parsers }

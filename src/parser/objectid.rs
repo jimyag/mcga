@@ -85,4 +85,3 @@ impl Parser for ObjectIdParser {
         vec![ParseResult::new("ObjectID", content, parsed).with_details(details)]
     }
 }
-

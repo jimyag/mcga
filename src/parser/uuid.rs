@@ -38,16 +38,16 @@ impl UuidParser {
     /// 提取 UUID v1 的时间戳和 MAC 地址
     fn extract_v1_info(uuid: &Uuid) -> Option<(DateTime<Utc>, String)> {
         let bytes = uuid.as_bytes();
-        
+
         // UUID v1 时间戳结构：
         // time_low (bytes 0-3), time_mid (bytes 4-5), time_hi_and_version (bytes 6-7)
         let time_low = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
         let time_mid = u16::from_be_bytes([bytes[4], bytes[5]]) as u64;
         let time_hi = (u16::from_be_bytes([bytes[6], bytes[7]]) & 0x0FFF) as u64;
-        
+
         // 组合成 60-bit 时间戳 (100 纳秒间隔，从 1582-10-15 开始)
         let timestamp = time_low | (time_mid << 32) | (time_hi << 48);
-        
+
         // 转换为 Unix 时间戳
         // UUID epoch: 1582-10-15 00:00:00
         // Unix epoch: 1970-01-01 00:00:00
@@ -56,58 +56,58 @@ impl UuidParser {
         if timestamp < UUID_EPOCH_DIFF {
             return None;
         }
-        
+
         let unix_100ns = timestamp - UUID_EPOCH_DIFF;
         let unix_secs = (unix_100ns / 10_000_000) as i64;
         let unix_nanos = ((unix_100ns % 10_000_000) * 100) as u32;
-        
+
         let datetime = Utc.timestamp_opt(unix_secs, unix_nanos).single()?;
-        
+
         // 提取 MAC 地址 (bytes 10-15)
         let mac = format!(
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
         );
-        
+
         Some((datetime, mac))
     }
 
     /// 提取 UUID v6 的时间戳
     fn extract_v6_info(uuid: &Uuid) -> Option<DateTime<Utc>> {
         let bytes = uuid.as_bytes();
-        
+
         // UUID v6 时间戳结构 (重新排序的 v1):
         // time_high (bytes 0-3), time_mid (bytes 4-5), time_low_and_version (bytes 6-7)
         let time_high = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
         let time_mid = u16::from_be_bytes([bytes[4], bytes[5]]) as u64;
         let time_low = (u16::from_be_bytes([bytes[6], bytes[7]]) & 0x0FFF) as u64;
-        
+
         let timestamp = (time_high << 28) | (time_mid << 12) | time_low;
-        
+
         const UUID_EPOCH_DIFF: u64 = 122192928000000000;
         if timestamp < UUID_EPOCH_DIFF {
             return None;
         }
-        
+
         let unix_100ns = timestamp - UUID_EPOCH_DIFF;
         let unix_secs = (unix_100ns / 10_000_000) as i64;
         let unix_nanos = ((unix_100ns % 10_000_000) * 100) as u32;
-        
+
         Utc.timestamp_opt(unix_secs, unix_nanos).single()
     }
 
     /// 提取 UUID v7 的时间戳
     fn extract_v7_info(uuid: &Uuid) -> Option<DateTime<Utc>> {
         let bytes = uuid.as_bytes();
-        
+
         // UUID v7: 前 48 位是 Unix 毫秒时间戳
         let unix_ms = u64::from_be_bytes([
             0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
         ]);
-        
+
         let unix_secs = (unix_ms / 1000) as i64;
         let unix_nanos = ((unix_ms % 1000) * 1_000_000) as u32;
-        
+
         Utc.timestamp_opt(unix_secs, unix_nanos).single()
     }
 }
@@ -128,13 +128,13 @@ impl Parser for UuidParser {
             Ok(u) => u,
             Err(_) => return vec![],
         };
-        
+
         let version_num = uuid.get_version_num();
         let version_info = Self::get_version_info(&uuid);
         let variant_info = Self::get_variant_info(&uuid);
-        
+
         let (hi, lo) = uuid.as_u64_pair();
-        
+
         // 基础信息
         let mut details = format!(
             "版本：{}\n变体：{}\n大写：{}\nURN: {}\n高 64 位：{:#018x}\n低 64 位：{:#018x}",
@@ -145,21 +145,24 @@ impl Parser for UuidParser {
             hi,
             lo
         );
-        
+
         // 根据版本提取额外信息
         let mut time_info = String::new();
-        
+
         match version_num {
             1 => {
                 if let Some((datetime, mac)) = Self::extract_v1_info(&uuid) {
-                    time_info = format!("\n创建时间：{}", datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"));
+                    time_info = format!(
+                        "\n创建时间：{}",
+                        datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC")
+                    );
                     details.push_str(&format!(
                         "\n\n时间信息:\n  创建时间：{}\n  ISO 8601: {}",
                         datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"),
                         datetime.to_rfc3339()
                     ));
                     details.push_str(&format!("\n\n节点信息:\n  MAC 地址：{}", mac));
-                    
+
                     // 检查是否是随机生成的 MAC（第一个字节的最低位为 1）
                     let first_byte = uuid.as_bytes()[10];
                     if first_byte & 0x01 == 0x01 {
@@ -169,7 +172,10 @@ impl Parser for UuidParser {
             }
             6 => {
                 if let Some(datetime) = Self::extract_v6_info(&uuid) {
-                    time_info = format!("\n创建时间：{}", datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"));
+                    time_info = format!(
+                        "\n创建时间：{}",
+                        datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC")
+                    );
                     details.push_str(&format!(
                         "\n\n时间信息:\n  创建时间：{}\n  ISO 8601: {}",
                         datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"),
@@ -179,7 +185,10 @@ impl Parser for UuidParser {
             }
             7 => {
                 if let Some(datetime) = Self::extract_v7_info(&uuid) {
-                    time_info = format!("\n创建时间：{}", datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"));
+                    time_info = format!(
+                        "\n创建时间：{}",
+                        datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC")
+                    );
                     details.push_str(&format!(
                         "\n\n时间信息:\n  创建时间：{}\n  ISO 8601: {}\n  精度：毫秒",
                         datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC"),

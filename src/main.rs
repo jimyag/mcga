@@ -80,19 +80,23 @@ fn run_daemon(interval_ms: u64) -> Result<()> {
     let engine = ParserEngine::new();
     let notifier = Notifier::new(&config);
 
-    info!("已加载 {} 个解析器：{:?}", engine.parser_names().len(), engine.parser_names());
+    info!(
+        "已加载 {} 个解析器：{:?}",
+        engine.parser_names().len(),
+        engine.parser_names()
+    );
 
     loop {
         match monitor.check_for_changes() {
             Ok(Some(content)) => {
                 debug!("检测到剪切板变化：{} 字符", content.len());
-                
+
                 let results = engine.parse_all(&content);
                 if results.is_empty() {
                     debug!("无法解析的内容");
                 } else {
                     info!("解析成功：{} 个结果", results.len());
-                    
+
                     // 每个解析结果单独发送一个通知
                     for result in &results {
                         info!("  [{}] {}", result.parser_name, &result.parsed);
@@ -141,14 +145,17 @@ fn run_parse(content: &str, all: bool) -> Result<()> {
 /// 解析当前剪切板内容
 fn run_clip(all: bool) -> Result<()> {
     let mut monitor = ClipboardMonitor::new(Duration::from_millis(100))?;
-    
+
     match monitor.get_current()? {
         Some(content) => {
-            println!("剪切板内容：{}\n", if content.len() > 50 {
-                format!("{}...", &content[..50])
-            } else {
-                content.clone()
-            });
+            println!(
+                "剪切板内容：{}\n",
+                if content.len() > 50 {
+                    format!("{}...", &content[..50])
+                } else {
+                    content.clone()
+                }
+            );
             run_parse(&content, all)
         }
         None => {
@@ -161,7 +168,7 @@ fn run_clip(all: bool) -> Result<()> {
 /// 列出所有解析器
 fn list_parsers() -> Result<()> {
     let engine = ParserEngine::new();
-    
+
     println!("支持的解析器：");
     println!("==============");
     for name in engine.parser_names() {
@@ -181,4 +188,3 @@ fn print_result(result: &mcga::parser::ParseResult) {
         }
     }
 }
-

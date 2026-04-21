@@ -30,7 +30,11 @@ pub struct ParseResult {
 }
 
 impl ParseResult {
-    pub fn new(parser_name: impl Into<String>, original: impl Into<String>, parsed: impl Into<String>) -> Self {
+    pub fn new(
+        parser_name: impl Into<String>,
+        original: impl Into<String>,
+        parsed: impl Into<String>,
+    ) -> Self {
         Self {
             parser_name: parser_name.into(),
             original: original.into(),
@@ -53,4 +57,3 @@ pub trait Parser: Send + Sync {
     /// 尝试解析内容，返回零个或多个结果
     fn parse(&self, content: &str) -> Vec<ParseResult>;
 }
-

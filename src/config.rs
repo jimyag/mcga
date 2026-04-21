@@ -30,4 +30,3 @@ impl Config {
         Duration::from_millis(self.poll_interval_ms)
     }
 }
-

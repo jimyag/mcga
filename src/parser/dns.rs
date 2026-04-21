@@ -30,11 +30,7 @@ struct DnsAnswer {
 }
 
 // 查询的记录类型：编号、名称
-const QUERY_TYPES: &[(u16, &str)] = &[
-    (1, "A"),
-    (28, "AAAA"),
-    (5, "CNAME"),
-];
+const QUERY_TYPES: &[(u16, &str)] = &[(1, "A"), (28, "AAAA"), (5, "CNAME")];
 
 const PROVIDERS: &[(&str, &str)] = &[
     ("Cloudflare", "https://cloudflare-dns.com/dns-query"),
@@ -56,12 +52,13 @@ impl DnsParser {
 
         // 至少一个点，每段字母数字加连字符，TLD 至少 2 个字母
         // 不匹配纯 IP（各段含非数字字符或 TLD 非纯数字）
-        let domain_pattern = Regex::new(
-            r"(?i)^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$",
-        )
-        .unwrap();
+        let domain_pattern =
+            Regex::new(r"(?i)^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$").unwrap();
 
-        Self { client, domain_pattern }
+        Self {
+            client,
+            domain_pattern,
+        }
     }
 
     fn query_type(&self, domain: &str, qtype_num: u16, provider_url: &str) -> Vec<DnsAnswer> {
@@ -104,7 +101,10 @@ impl DnsParser {
         if by_type.is_empty() {
             None
         } else {
-            Some(DnsResult { provider: name, by_type })
+            Some(DnsResult {
+                provider: name,
+                by_type,
+            })
         }
     }
 }
@@ -131,22 +131,28 @@ impl Parser for DnsParser {
                 .iter()
                 .map(|(name, url)| s.spawn(|| self.query_provider(content, name, url)))
                 .collect();
-            handles.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
+            handles
+                .into_iter()
+                .filter_map(|h| h.join().ok().flatten())
+                .collect()
         });
 
         // 每个 provider 的每种记录类型单独一条 ParseResult，对应一条通知
         results
             .into_iter()
             .flat_map(|result| {
-                result.by_type.into_iter().map(move |(type_name, _ttl, values)| {
-                    let parsed = format!(
-                        "DNS/{} via {}\n{}",
-                        type_name,
-                        result.provider,
-                        values.join("\n")
-                    );
-                    ParseResult::new("DNS", content, parsed)
-                })
+                result
+                    .by_type
+                    .into_iter()
+                    .map(move |(type_name, _ttl, values)| {
+                        let parsed = format!(
+                            "DNS/{} via {}\n{}",
+                            type_name,
+                            result.provider,
+                            values.join("\n")
+                        );
+                        ParseResult::new("DNS", content, parsed)
+                    })
             })
             .collect()
     }

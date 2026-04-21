@@ -49,4 +49,3 @@ impl ClipboardMonitor {
         Ok(self.clipboard.get_text().ok())
     }
 }
-
