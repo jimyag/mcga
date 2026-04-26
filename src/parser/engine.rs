@@ -1,6 +1,7 @@
 use super::{
-    Base64Parser, CidrParser, CronParser, DnsParser, HashParser, IpParser, Ipv6Parser, Json5Parser,
-    TimeGenerator, TimestampGenerator, TimestampParser, UuidGenerator, UuidParser, YamlParser,
+    B64Generator, Base64Parser, CidrParser, CronParser, DnsParser, HashParser, IpParser,
+    Ipv6Parser, Json5Parser, JsonParser, ObjectIdGenerator, ObjectIdParser, ParseResult, Parser,
+    UuidGenerator, UuidParser, YamlParser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -17,6 +18,8 @@ impl ParserEngine {
             Box::new(TimestampGenerator::new()),  // "ts"/"timestamp" → 秒时间戳
             Box::new(TimeGenerator::new()),       // "time"           → RFC 3339
             Box::new(ObjectIdGenerator::new()),   // "objectid"/"oid" → MongoDB ObjectId
+            Box::new(B64Generator::new()),        // "b64"/"b64 <text>" → Base64 编码
+            Box::new(PswdGenerator::new()),       // "pswd"/"pswd N"  → 随机密码
             Box::new(CidrParser::new()),      // CIDR 网段（含 /xx 后缀）
             Box::new(UuidParser::new()),      // 精确格式
             Box::new(ObjectIdParser::new()),  // 精确格式 (24 位 hex)
