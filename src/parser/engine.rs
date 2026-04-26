@@ -1,6 +1,6 @@
 use super::{
     Base64Parser, CidrParser, CronParser, DnsParser, HashParser, IpParser, Ipv6Parser, Json5Parser,
-    UuidParser, YamlParser,
+    TimeGenerator, TimestampGenerator, TimestampParser, UuidGenerator, UuidParser, YamlParser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -12,6 +12,11 @@ impl ParserEngine {
     pub fn new() -> Self {
         // 解析器顺序很重要：更具体的解析器应该放在前面
         let parsers: Vec<Box<dyn Parser>> = vec![
+            // 关键词触发生成器（最高优先级，精确匹配单词）
+            Box::new(UuidGenerator::new()),       // "uuid"           → UUID v7
+            Box::new(TimestampGenerator::new()),  // "ts"/"timestamp" → 秒时间戳
+            Box::new(TimeGenerator::new()),       // "time"           → RFC 3339
+            Box::new(ObjectIdGenerator::new()),   // "objectid"/"oid" → MongoDB ObjectId
             Box::new(CidrParser::new()),      // CIDR 网段（含 /xx 后缀）
             Box::new(UuidParser::new()),      // 精确格式
             Box::new(ObjectIdParser::new()),  // 精确格式 (24 位 hex)

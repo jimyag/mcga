@@ -1,6 +1,7 @@
 mod base64_decode;
 mod cidr;
 mod cron;
+mod generate;
 mod dns;
 mod engine;
 mod hash;
@@ -14,6 +15,7 @@ mod uuid;
 mod yaml;
 
 pub use base64_decode::Base64Parser;
+pub use generate::{ObjectIdGenerator, TimeGenerator, TimestampGenerator, UuidGenerator};
 pub use cidr::CidrParser;
 pub use cron::CronParser;
 pub use dns::DnsParser;
