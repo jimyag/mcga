@@ -28,7 +28,8 @@ pub struct HistoryResult {
 }
 
 fn history_path() -> Option<PathBuf> {
-    dirs::data_local_dir().map(|d| d.join("mcga").join("history.json"))
+    // 强制使用 ~/.local/share/mcga/history.json，跨平台一致
+    dirs::home_dir().map(|h| h.join(".local").join("share").join("mcga").join("history.json"))
 }
 
 /// 追加一批解析结果到历史文件

@@ -6,7 +6,8 @@ use anyhow::Result;
 use crate::config::Config;
 
 pub fn config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("mcga").join("config.toml"))
+    // 强制使用 ~/.config/mcga/config.toml，跨平台一致
+    dirs::home_dir().map(|h| h.join(".config").join("mcga").join("config.toml"))
 }
 
 /// 加载配置文件，文件不存在时返回默认值
