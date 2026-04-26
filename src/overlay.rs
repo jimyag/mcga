@@ -39,8 +39,7 @@ fn history_target_class() -> &'static AnyClass {
                 return;
             }
             let text = crate::history::format_for_overlay(&entries, 30);
-            let mut cfg = crate::config_file::load();
-            cfg.overlay_dismiss_secs = 60;
+            let cfg = crate::config_file::load();
             unsafe { show_inner("历史记录", &text, &cfg) };
         }
 
@@ -171,6 +170,10 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
         mtm,
     );
     btn.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, BTN_H)));
+    // 无边框按钮 + contentTintColor 可直接设置文字颜色
+    btn.setBordered(false);
+    let btn_fg = NSColor::colorWithRed_green_blue_alpha(0.92, 0.92, 0.92, 1.0);
+    btn.setContentTintColor(Some(&btn_fg));
     container.addSubview(&**btn);
 
     // ── NSScrollView（占据按钮以上区域）

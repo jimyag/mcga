@@ -330,11 +330,9 @@ fn run_history_overlay(count: usize) -> Result<()> {
         app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
         app.finishLaunching();
 
-        let mut cfg = config.clone();
-        cfg.overlay_dismiss_secs = 60;
         mcga::gcd::exec_async(move || {
             let result = mcga::parser::ParseResult::new("历史记录", &text, "").with_details(text);
-            mcga::overlay::show_results(&[result], &cfg);
+            mcga::overlay::show_results(&[result], &config);
         });
 
         app.run();
