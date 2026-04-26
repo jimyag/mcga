@@ -1,3 +1,5 @@
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -8,8 +10,7 @@ use tracing_subscriber::EnvFilter;
 
 use mcga::config::Config;
 use mcga::monitor::ClipboardMonitor;
-use mcga::notifier::Notifier;
-use mcga::parser::ParserEngine;
+use mcga::parser::{ParseResult, ParserEngine};
 
 #[derive(Parser)]
 #[command(name = "mcga")]
@@ -60,15 +61,22 @@ fn main() -> Result<()> {
         Some(Commands::Parse { content, all }) => run_parse(&content, all),
         Some(Commands::Parsers) => list_parsers(),
         Some(Commands::Clip { all }) => run_clip(all),
-        None => {
-            // 默认行为：启动守护进程
-            run_daemon(500)
-        }
+        None => run_daemon(500),
     }
 }
 
 /// 运行守护进程模式
 fn run_daemon(interval_ms: u64) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    return run_daemon_macos(interval_ms);
+
+    #[cfg(not(target_os = "macos"))]
+    return run_daemon_generic(interval_ms);
+}
+
+/// 守护进程 — 非 macOS 平台（保留原有 notify-rust 逻辑）
+#[cfg(not(target_os = "macos"))]
+fn run_daemon_generic(interval_ms: u64) -> Result<()> {
     info!("MCGA 守护进程启动，轮询间隔：{}ms", interval_ms);
 
     let config = Config {
@@ -90,14 +98,11 @@ fn run_daemon(interval_ms: u64) -> Result<()> {
         match monitor.check_for_changes() {
             Ok(Some(content)) => {
                 debug!("检测到剪切板变化：{} 字符", content.len());
-
                 let results = engine.parse_all(&content);
                 if results.is_empty() {
                     debug!("无法解析的内容");
                 } else {
                     info!("解析成功：{} 个结果", results.len());
-
-                    // 每个解析结果单独发送一个通知
                     for result in &results {
                         info!("  [{}] {}", result.parser_name, &result.parsed);
                         if let Err(e) = notifier.send(result) {
@@ -106,16 +111,104 @@ fn run_daemon(interval_ms: u64) -> Result<()> {
                     }
                 }
             }
-            Ok(None) => {
-                // 没有变化
-            }
-            Err(e) => {
-                warn!("读取剪切板失败：{}", e);
-            }
+            Ok(None) => {}
+            Err(e) => warn!("读取剪切板失败：{}", e),
         }
-
         thread::sleep(Duration::from_millis(interval_ms));
     }
+}
+
+/// 守护进程 — macOS：NSApplication 跑在主线程，剪切板轮询在后台线程
+#[cfg(target_os = "macos")]
+fn run_daemon_macos(interval_ms: u64) -> Result<()> {
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+
+    info!("MCGA 守护进程启动（macOS overlay 模式），轮询间隔：{}ms", interval_ms);
+
+    let config = Config {
+        poll_interval_ms: interval_ms,
+        ..Default::default()
+    };
+    let engine = Arc::new(ParserEngine::new());
+
+    info!(
+        "已加载 {} 个解析器：{:?}",
+        engine.parser_names().len(),
+        engine.parser_names()
+    );
+
+    let (tx, rx) = mpsc::channel::<Vec<ParseResult>>();
+    let rx = Arc::new(Mutex::new(rx));
+
+    // 后台线程：轮询剪切板
+    let engine_bg = Arc::clone(&engine);
+    let interval = config.poll_interval();
+    thread::spawn(move || {
+        let mut monitor = match ClipboardMonitor::new(interval) {
+            Ok(m) => m,
+            Err(e) => {
+                error!("剪切板初始化失败：{}", e);
+                return;
+            }
+        };
+        loop {
+            match monitor.check_for_changes() {
+                Ok(Some(content)) => {
+                    debug!("检测到剪切板变化：{} 字符", content.len());
+                    let results = engine_bg.parse_all(&content);
+                    if !results.is_empty() {
+                        info!("解析成功：{} 个结果", results.len());
+                        for r in &results {
+                            info!("  [{}] {}", r.parser_name, &r.parsed);
+                        }
+                        tx.send(results).ok();
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => warn!("读取剪切板失败：{}", e),
+            }
+            thread::sleep(interval);
+        }
+    });
+
+    // 主线程：NSApplication 事件循环
+    unsafe {
+        use objc2_foundation::MainThreadMarker;
+        let mtm = MainThreadMarker::new_unchecked();
+        let app = NSApplication::sharedApplication(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+        app.finishLaunching();
+
+        // 在 run loop 启动后开始轮询 channel
+        let rx2 = Arc::clone(&rx);
+        let config2 = Arc::new(config.clone());
+        mcga::gcd::exec_async(move || {
+            poll_and_reschedule(rx2, config2);
+        });
+
+        app.run();
+    }
+
+    Ok(())
+}
+
+/// 从 channel 取出解析结果并展示，然后重新调度自身（每 100ms）
+#[cfg(target_os = "macos")]
+fn poll_and_reschedule(
+    rx: Arc<Mutex<mpsc::Receiver<Vec<ParseResult>>>>,
+    config: Arc<Config>,
+) {
+    if let Ok(guard) = rx.lock() {
+        while let Ok(results) = guard.try_recv() {
+            mcga::overlay::show_results(&results, &config);
+        }
+    }
+
+    let rx2 = Arc::clone(&rx);
+    let config2 = Arc::clone(&config);
+    mcga::gcd::exec_after(Duration::from_millis(100), move || {
+        poll_and_reschedule(rx2, config2);
+    });
 }
 
 /// 解析指定内容
