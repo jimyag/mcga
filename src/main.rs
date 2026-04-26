@@ -54,6 +54,9 @@ enum Commands {
         /// 清空历史记录
         #[arg(long)]
         clear: bool,
+        /// 在浮层中展示（仅 macOS）
+        #[arg(short, long)]
+        overlay: bool,
     },
     /// 将当前配置写入配置文件（生成模板）
     InitConfig,
@@ -71,14 +74,20 @@ fn main() -> Result<()> {
         Some(Commands::Parse { content, all }) => run_parse(&content, all),
         Some(Commands::Parsers) => list_parsers(),
         Some(Commands::Clip { all }) => run_clip(all),
-        Some(Commands::History { count, clear }) => {
+        Some(Commands::History { count, clear, overlay }) => {
             if clear {
                 mcga::history::clear()?;
                 println!("历史记录已清空");
+                Ok(())
+            } else if overlay {
+                #[cfg(target_os = "macos")]
+                return run_history_overlay(count);
+                #[cfg(not(target_os = "macos"))]
+                { mcga::history::print_recent(count); Ok(()) }
             } else {
                 mcga::history::print_recent(count);
+                Ok(())
             }
-            Ok(())
         }
         Some(Commands::InitConfig) => {
             let config = mcga::config_file::load();
@@ -295,6 +304,41 @@ fn list_parsers() -> Result<()> {
         println!("  • {}", name);
     }
 
+    Ok(())
+}
+
+/// 以独立 NSApplication 在浮层中展示历史记录（macOS）
+#[cfg(target_os = "macos")]
+fn run_history_overlay(count: usize) -> Result<()> {
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+    use objc2_foundation::MainThreadMarker;
+
+    let entries = mcga::history::load_all().unwrap_or_default();
+    if entries.is_empty() {
+        println!("暂无历史记录");
+        return Ok(());
+    }
+
+    let text = mcga::history::format_for_overlay(&entries, count);
+    let config = mcga::config_file::load();
+
+    mcga::overlay::set_quit_on_empty(true);
+
+    unsafe {
+        let mtm = MainThreadMarker::new_unchecked();
+        let app = NSApplication::sharedApplication(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+        app.finishLaunching();
+
+        let mut cfg = config.clone();
+        cfg.overlay_dismiss_secs = 60;
+        mcga::gcd::exec_async(move || {
+            let result = mcga::parser::ParseResult::new("历史记录", &text, "").with_details(text);
+            mcga::overlay::show_results(&[result], &cfg);
+        });
+
+        app.run();
+    }
     Ok(())
 }
 

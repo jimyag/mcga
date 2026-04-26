@@ -112,6 +112,30 @@ pub fn print_recent(n: usize) {
     }
 }
 
+/// 将最近 n 条历史记录格式化为适合浮层展示的文本
+pub fn format_for_overlay(entries: &[HistoryEntry], n: usize) -> String {
+    if entries.is_empty() {
+        return "暂无历史记录".to_string();
+    }
+
+    let recent: Vec<_> = entries.iter().rev().take(n).collect();
+    let mut out = format!("最近 {} 条 / 共 {} 条\n\n", recent.len(), entries.len());
+
+    for entry in &recent {
+        let time = entry.timestamp.format("%m-%d %H:%M:%S");
+        let parsers: Vec<_> = entry.results.iter().map(|r| r.parser_name.as_str()).collect();
+        out.push_str(&format!(
+            "[{}] #{} — {}\n{}\n\n",
+            time,
+            entry.id,
+            parsers.join(", "),
+            entry.original_preview.lines().take(3).collect::<Vec<_>>().join(" ↵ ")
+        ));
+    }
+
+    out.trim_end().to_string()
+}
+
 /// 清空历史记录
 pub fn clear() -> Result<()> {
     let path = history_path().ok_or_else(|| anyhow::anyhow!("无法确定数据目录"))?;

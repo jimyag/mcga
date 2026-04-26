@@ -38,6 +38,9 @@ objc2-app-kit = { version = "0.3", features = [
     "NSEvent",
     "NSPasteboard",
     "NSTextContainer",
+    "NSButton",
+    "NSControl",
+    "NSCell",
 ] }
 clap = { version = "4.5", features = ["derive"] }
 regex = "1.11"
