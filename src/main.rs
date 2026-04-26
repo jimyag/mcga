@@ -46,10 +46,20 @@ enum Commands {
         #[arg(short, long)]
         all: bool,
     },
+    /// 查看解析历史
+    History {
+        /// 显示最近 N 条记录
+        #[arg(short, long, default_value = "20")]
+        count: usize,
+        /// 清空历史记录
+        #[arg(long)]
+        clear: bool,
+    },
+    /// 将当前配置写入配置文件（生成模板）
+    InitConfig,
 }
 
 fn main() -> Result<()> {
-    // 初始化日志
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive("mcga=info".parse()?))
         .init();
@@ -61,6 +71,21 @@ fn main() -> Result<()> {
         Some(Commands::Parse { content, all }) => run_parse(&content, all),
         Some(Commands::Parsers) => list_parsers(),
         Some(Commands::Clip { all }) => run_clip(all),
+        Some(Commands::History { count, clear }) => {
+            if clear {
+                mcga::history::clear()?;
+                println!("历史记录已清空");
+            } else {
+                mcga::history::print_recent(count);
+            }
+            Ok(())
+        }
+        Some(Commands::InitConfig) => {
+            let config = mcga::config_file::load();
+            mcga::config_file::save(&config)?;
+            println!("配置文件已写入：{}", mcga::config_file::config_path().unwrap().display());
+            Ok(())
+        }
         None => run_daemon(500),
     }
 }
@@ -79,10 +104,8 @@ fn run_daemon(interval_ms: u64) -> Result<()> {
 fn run_daemon_generic(interval_ms: u64) -> Result<()> {
     info!("MCGA 守护进程启动，轮询间隔：{}ms", interval_ms);
 
-    let config = Config {
-        poll_interval_ms: interval_ms,
-        ..Default::default()
-    };
+    let mut config = mcga::config_file::load();
+    config.poll_interval_ms = interval_ms;
 
     let mut monitor = ClipboardMonitor::new(config.poll_interval())?;
     let engine = ParserEngine::new();
@@ -109,6 +132,9 @@ fn run_daemon_generic(interval_ms: u64) -> Result<()> {
                             error!("发送通知失败：{}", e);
                         }
                     }
+                    if let Err(e) = mcga::history::append(&content, &results) {
+                        debug!("历史记录写入失败：{}", e);
+                    }
                 }
             }
             Ok(None) => {}
@@ -125,10 +151,8 @@ fn run_daemon_macos(interval_ms: u64) -> Result<()> {
 
     info!("MCGA 守护进程启动（macOS overlay 模式），轮询间隔：{}ms", interval_ms);
 
-    let config = Config {
-        poll_interval_ms: interval_ms,
-        ..Default::default()
-    };
+    let mut config = mcga::config_file::load();
+    config.poll_interval_ms = interval_ms;
     let engine = Arc::new(ParserEngine::new());
 
     info!(
@@ -160,6 +184,9 @@ fn run_daemon_macos(interval_ms: u64) -> Result<()> {
                         info!("解析成功：{} 个结果", results.len());
                         for r in &results {
                             info!("  [{}] {}", r.parser_name, &r.parsed);
+                        }
+                        if let Err(e) = mcga::history::append(&content, &results) {
+                            debug!("历史记录写入失败：{}", e);
                         }
                         tx.send(results).ok();
                     }

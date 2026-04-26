@@ -124,7 +124,12 @@ impl Parser for UuidParser {
     }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
-        let uuid = match Uuid::parse_str(content) {
+        let trimmed = content.trim();
+        // 要求标准带横线格式（36 字符），避免与 MD5 等 32 位 hex hash 冲突
+        if !trimmed.contains('-') {
+            return vec![];
+        }
+        let uuid = match Uuid::parse_str(trimmed) {
             Ok(u) => u,
             Err(_) => return vec![],
         };

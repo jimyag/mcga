@@ -1,7 +1,11 @@
+mod base64_decode;
 mod cidr;
+mod cron;
 mod dns;
 mod engine;
+mod hash;
 mod ip;
+mod ipv6;
 mod json;
 mod json5;
 mod objectid;
@@ -9,10 +13,14 @@ mod timestamp;
 mod uuid;
 mod yaml;
 
+pub use base64_decode::Base64Parser;
 pub use cidr::CidrParser;
+pub use cron::CronParser;
 pub use dns::DnsParser;
 pub use engine::ParserEngine;
+pub use hash::HashParser;
 pub use ip::IpParser;
+pub use ipv6::Ipv6Parser;
 pub use json::JsonParser;
 pub use json5::Json5Parser;
 pub use objectid::ObjectIdParser;

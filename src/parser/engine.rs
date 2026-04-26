@@ -1,5 +1,6 @@
 use super::{
-    CidrParser, DnsParser, IpParser, Json5Parser, JsonParser, ObjectIdParser, ParseResult, Parser,
+    Base64Parser, CidrParser, CronParser, DnsParser, HashParser, IpParser, Ipv6Parser, Json5Parser,
+    UuidParser, YamlParser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -14,11 +15,15 @@ impl ParserEngine {
             Box::new(CidrParser::new()),      // CIDR 网段（含 /xx 后缀）
             Box::new(UuidParser::new()),      // 精确格式
             Box::new(ObjectIdParser::new()),  // 精确格式 (24 位 hex)
-            Box::new(IpParser::new()),        // 精确格式（仅公网 IP）
+            Box::new(HashParser::new()),      // MD5/SHA-1/SHA-256 等（按 hex 长度识别）
+            Box::new(Ipv6Parser::new()),      // IPv6 地址
+            Box::new(IpParser::new()),        // 精确格式（仅公网 IPv4）
             Box::new(TimestampParser::new()), // 纯数字，长度限定
+            Box::new(CronParser::new()),      // Cron 表达式（5 或 6 字段）
             Box::new(JsonParser::new()),      // 以 { 或 [ 开头（严格 JSON）
             Box::new(Json5Parser::new()),     // JSON5 / JSONC（含注释或 trailing comma）
             Box::new(YamlParser::new()),      // YAML map / sequence
+            Box::new(Base64Parser::new()),    // Base64 解码（解码结果须为可打印文本）
             Box::new(DnsParser::new()),       // 域名 DoH 查询（Cloudflare / AliDNS）
         ];
 
