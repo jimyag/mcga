@@ -3,18 +3,22 @@ mod dns;
 mod engine;
 mod ip;
 mod json;
+mod json5;
 mod objectid;
 mod timestamp;
 mod uuid;
+mod yaml;
 
 pub use cidr::CidrParser;
 pub use dns::DnsParser;
 pub use engine::ParserEngine;
 pub use ip::IpParser;
 pub use json::JsonParser;
+pub use json5::Json5Parser;
 pub use objectid::ObjectIdParser;
 pub use timestamp::TimestampParser;
 pub use uuid::UuidParser;
+pub use yaml::YamlParser;
 
 /// 解析结果
 #[derive(Debug, Clone)]

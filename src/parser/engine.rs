@@ -1,4 +1,5 @@
 use super::{
+    CidrParser, DnsParser, IpParser, Json5Parser, JsonParser, ObjectIdParser, ParseResult, Parser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -15,7 +16,9 @@ impl ParserEngine {
             Box::new(ObjectIdParser::new()),  // 精确格式 (24 位 hex)
             Box::new(IpParser::new()),        // 精确格式（仅公网 IP）
             Box::new(TimestampParser::new()), // 纯数字，长度限定
-            Box::new(JsonParser::new()),      // 以 { 或 [ 开头
+            Box::new(JsonParser::new()),      // 以 { 或 [ 开头（严格 JSON）
+            Box::new(Json5Parser::new()),     // JSON5 / JSONC（含注释或 trailing comma）
+            Box::new(YamlParser::new()),      // YAML map / sequence
             Box::new(DnsParser::new()),       // 域名 DoH 查询（Cloudflare / AliDNS）
         ];
 

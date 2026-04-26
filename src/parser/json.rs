@@ -69,29 +69,15 @@ impl Parser for JsonParser {
             Ok(s) => s,
             Err(_) => return vec![],
         };
-        let preview = if formatted.len() > 500 {
-            format!("{}...", &formatted[..500])
-        } else {
-            formatted
-        };
 
-        let details = format!(
-            "类型：{}\n元素数：{}\n嵌套深度：{}\n原始大小：{} 字节\n\n预览:\n{}",
-            type_info,
-            element_count,
-            depth,
-            content.len(),
-            preview
+        let meta = format!(
+            "类型：{}  元素数：{}  嵌套深度：{}  大小：{} 字节",
+            type_info, element_count, depth, content.len()
         );
 
-        vec![ParseResult::new(
-            "JSON",
-            content,
-            format!(
-                "类型：{}\n元素数：{}\n嵌套深度：{}",
-                type_info, element_count, depth
-            ),
-        )
-        .with_details(details)]
+        vec![
+            ParseResult::new("JSON", content, format!("类型：{}  元素数：{}  嵌套深度：{}", type_info, element_count, depth))
+                .with_details(format!("{}\n\n{}", formatted, meta))
+        ]
     }
 }
