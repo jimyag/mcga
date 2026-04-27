@@ -11,8 +11,7 @@ use objc2::runtime::{AnyClass, AnyObject, ClassBuilder, NSObject, Sel};
 use objc2::{msg_send, sel, ClassType, MainThreadOnly};
 use objc2_app_kit::{
     NSBackingStoreType, NSButton, NSColor, NSEvent, NSFont, NSFloatingWindowLevel, NSPanel,
-    NSScreen, NSScrollView, NSTextView, NSView, NSVisualEffectBlendingMode, NSVisualEffectMaterial,
-    NSVisualEffectState, NSVisualEffectView, NSWindowStyleMask,
+    NSScreen, NSScrollView, NSTextView, NSView, NSWindowStyleMask,
 };
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
 
@@ -145,13 +144,12 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
     );
 
     panel.setLevel(NSFloatingWindowLevel);
-    // 透明度稍低，毛玻璃效果通过 NSVisualEffectView 实现
-    panel.setAlphaValue(0.92);
+    panel.setAlphaValue(0.96);
     panel.setHasShadow(true);
     panel.setMovableByWindowBackground(true);
-    // 面板本身设为透明，让 NSVisualEffectView 负责背景
-    panel.setOpaque(false);
-    panel.setBackgroundColor(Some(&NSColor::clearColor()));
+
+    let bg = NSColor::colorWithRed_green_blue_alpha(0.11, 0.11, 0.11, 1.0);
+    panel.setBackgroundColor(Some(&bg));
 
     // ── 按钮 target 对象
     let cls = history_target_class();
@@ -160,22 +158,9 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
         Retained::from_raw(msg_send![alloc, init]).unwrap()
     };
 
-    // ── NSVisualEffectView（毛玻璃底层）作为根 content view
+    // ── 容器 NSView
     let container_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height));
-    let blur_view = NSVisualEffectView::initWithFrame(
-        NSVisualEffectView::alloc(mtm),
-        container_rect,
-    );
-    // HUDWindow 材质：深色毛玻璃，模糊窗口后面的内容
-    blur_view.setMaterial(NSVisualEffectMaterial::HUDWindow);
-    blur_view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
-    // Active：始终显示模糊效果，无论窗口是否是 key window
-    blur_view.setState(NSVisualEffectState::Active);
-
-    // 用 NSView 作为布局容器（叠在 blur_view 上）
     let container = NSView::initWithFrame(NSView::alloc(mtm), container_rect);
-    let container_as_view: &NSView = &*container;
-    blur_view.addSubview(container_as_view);
 
     // ── 历史按钮（底部）
     let btn = NSButton::buttonWithTitle_target_action(
@@ -228,8 +213,7 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
     scroll.setDocumentView(Some(&**text_view));
     container.addSubview(&**scroll);
 
-    // blur_view 是真正的 content view，container 叠在其上
-    panel.setContentView(Some(&*blur_view));
+    panel.setContentView(Some(&*container));
     panel.orderFrontRegardless();
 
     let cancelled = Arc::new(AtomicBool::new(false));
