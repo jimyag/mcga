@@ -172,7 +172,7 @@ impl Parser for ObjectIdGenerator {
     }
 }
 
-// ── Base64 编码生成器 ─────────────────────────────────────────────────────────
+// ── Base64 编码生成器（对上一条剪贴板内容编码）────────────────────────────────
 
 pub struct B64Generator;
 
@@ -185,38 +185,89 @@ impl Parser for B64Generator {
     fn name(&self) -> &'static str { "Base64编码" }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
-        let trimmed = content.trim();
-        let lower = trimmed.to_lowercase();
+        self.parse_with_prev(content, "")
+    }
 
-        if lower == "b64" {
-            // 无参数：生成 32 字节随机密钥
-            let bytes = random_bytes(32);
-            let encoded = general_purpose::STANDARD.encode(&bytes);
+    fn parse_with_prev(&self, content: &str, prev: &str) -> Vec<ParseResult> {
+        if content.trim().to_lowercase() != "b64" {
+            return vec![];
+        }
+        if prev.is_empty() {
             return gen_result(
                 "Base64编码",
                 content,
-                &encoded,
-                format!("随机 256-bit 密钥（Base64）：{}", encoded),
+                "",
+                "无上一条剪贴板内容可编码".to_string(),
             );
         }
+        let encoded = general_purpose::STANDARD.encode(prev.as_bytes());
+        gen_result(
+            "Base64编码",
+            content,
+            &encoded,
+            format!("原文（{} 字节）：\n{}\n\nBase64：\n{}", prev.len(), prev, encoded),
+        )
+    }
+}
 
-        // "b64 <text>" → 编码文本
-        if let Some(rest) = trimmed.strip_prefix("b64 ").or_else(|| trimmed.strip_prefix("B64 ")) {
-            let encoded = general_purpose::STANDARD.encode(rest.as_bytes());
+// ── Base64 解码生成器（对上一条剪贴板内容解码）────────────────────────────────
+
+pub struct DB64Generator;
+
+impl DB64Generator {
+    pub fn new() -> Self { Self }
+}
+impl Default for DB64Generator { fn default() -> Self { Self::new() } }
+
+impl Parser for DB64Generator {
+    fn name(&self) -> &'static str { "Base64解码" }
+
+    fn parse(&self, content: &str) -> Vec<ParseResult> {
+        self.parse_with_prev(content, "")
+    }
+
+    fn parse_with_prev(&self, content: &str, prev: &str) -> Vec<ParseResult> {
+        if content.trim().to_lowercase() != "db64" {
+            return vec![];
+        }
+        if prev.is_empty() {
             return gen_result(
-                "Base64编码",
+                "Base64解码",
                 content,
-                &encoded,
-                format!(
-                    "原文（{} 字节）：{}\nBase64：{}",
-                    rest.len(),
-                    rest,
-                    encoded
-                ),
+                "",
+                "无上一条剪贴板内容可解码".to_string(),
             );
         }
+        let bytes = match general_purpose::STANDARD
+            .decode(prev.trim())
+            .or_else(|_| general_purpose::URL_SAFE.decode(prev.trim()))
+            .or_else(|_| general_purpose::URL_SAFE_NO_PAD.decode(prev.trim()))
+        {
+            Ok(b) => b,
+            Err(e) => {
+                return gen_result(
+                    "Base64解码",
+                    content,
+                    "",
+                    format!("解码失败：{}", e),
+                );
+            }
+        };
 
-        vec![]
+        match std::str::from_utf8(&bytes) {
+            Ok(text) => gen_result(
+                "Base64解码",
+                content,
+                text,
+                format!("解码结果（{} 字节）：\n{}", bytes.len(), text),
+            ),
+            Err(_) => gen_result(
+                "Base64解码",
+                content,
+                &hex::encode(&bytes),
+                format!("解码结果（二进制，{} 字节）：\n{}", bytes.len(), hex::encode(&bytes)),
+            ),
+        }
     }
 }
 

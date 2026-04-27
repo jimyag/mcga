@@ -16,8 +16,8 @@ mod yaml;
 
 pub use base64_decode::Base64Parser;
 pub use generate::{
-    B64Generator, ObjectIdGenerator, PswdGenerator, TimeGenerator, TimestampGenerator,
-    UuidGenerator,
+    B64Generator, DB64Generator, ObjectIdGenerator, PswdGenerator, TimeGenerator,
+    TimestampGenerator, UuidGenerator,
 };
 pub use cidr::CidrParser;
 pub use cron::CronParser;
@@ -73,4 +73,9 @@ pub trait Parser: Send + Sync {
 
     /// 尝试解析内容，返回零个或多个结果
     fn parse(&self, content: &str) -> Vec<ParseResult>;
+
+    /// 带上一条剪贴板内容的解析（默认忽略 prev，只有需要它的解析器重写此方法）
+    fn parse_with_prev(&self, content: &str, _prev: &str) -> Vec<ParseResult> {
+        self.parse(content)
+    }
 }

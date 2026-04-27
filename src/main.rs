@@ -126,11 +126,13 @@ fn run_daemon_generic(interval_ms: u64) -> Result<()> {
         engine.parser_names()
     );
 
+    let mut prev_content = String::new();
     loop {
         match monitor.check_for_changes() {
             Ok(Some(content)) => {
                 debug!("检测到剪切板变化：{} 字符", content.len());
-                let results = engine.parse_all(&content);
+                let results = engine.parse_all_with_prev(&content, &prev_content);
+                prev_content = content.clone();
                 if results.is_empty() {
                     debug!("无法解析的内容");
                 } else {
@@ -184,11 +186,13 @@ fn run_daemon_macos(interval_ms: u64) -> Result<()> {
                 return;
             }
         };
+        let mut prev_content = String::new();
         loop {
             match monitor.check_for_changes() {
                 Ok(Some(content)) => {
                     debug!("检测到剪切板变化：{} 字符", content.len());
-                    let results = engine_bg.parse_all(&content);
+                    let results = engine_bg.parse_all_with_prev(&content, &prev_content);
+                    prev_content = content.clone();
                     if !results.is_empty() {
                         info!("解析成功：{} 个结果", results.len());
                         for r in &results {

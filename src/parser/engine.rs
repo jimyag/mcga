@@ -1,7 +1,7 @@
 use super::{
-    B64Generator, Base64Parser, CidrParser, CronParser, DnsParser, HashParser, IpParser,
-    Ipv6Parser, Json5Parser, JsonParser, ObjectIdGenerator, ObjectIdParser, ParseResult, Parser,
-    UuidGenerator, UuidParser, YamlParser,
+    B64Generator, Base64Parser, CidrParser, CronParser, DB64Generator, DnsParser, HashParser,
+    IpParser, Ipv6Parser, Json5Parser, JsonParser, ObjectIdGenerator, ObjectIdParser, ParseResult,
+    TimestampParser, UuidGenerator, UuidParser, YamlParser,
 };
 
 /// 解析引擎，管理所有解析器
@@ -18,7 +18,8 @@ impl ParserEngine {
             Box::new(TimestampGenerator::new()),  // "ts"/"timestamp" → 秒时间戳
             Box::new(TimeGenerator::new()),       // "time"           → RFC 3339
             Box::new(ObjectIdGenerator::new()),   // "objectid"/"oid" → MongoDB ObjectId
-            Box::new(B64Generator::new()),        // "b64"/"b64 <text>" → Base64 编码
+            Box::new(B64Generator::new()),        // "b64"  → 对上一条剪贴板内容做 Base64 编码
+            Box::new(DB64Generator::new()),       // "db64" → 对上一条剪贴板内容做 Base64 解码
             Box::new(PswdGenerator::new()),       // "pswd"/"pswd N"  → 随机密码
             Box::new(CidrParser::new()),      // CIDR 网段（含 /xx 后缀）
             Box::new(UuidParser::new()),      // 精确格式
@@ -61,6 +62,11 @@ impl ParserEngine {
 
     /// 尝试用所有解析器解析内容，返回所有成功的结果
     pub fn parse_all(&self, content: &str) -> Vec<ParseResult> {
+        self.parse_all_with_prev(content, "")
+    }
+
+    /// 带上一条剪贴板内容的完整解析（供需要上下文的生成器使用）
+    pub fn parse_all_with_prev(&self, content: &str, prev: &str) -> Vec<ParseResult> {
         let trimmed = content.trim();
         if trimmed.is_empty() {
             return Vec::new();
@@ -68,7 +74,7 @@ impl ParserEngine {
 
         self.parsers
             .iter()
-            .flat_map(|parser| parser.parse(trimmed))
+            .flat_map(|parser| parser.parse_with_prev(trimmed, prev))
             .collect()
     }
 }
