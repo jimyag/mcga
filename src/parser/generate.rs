@@ -12,7 +12,18 @@ use super::{ParseResult, Parser};
 
 fn random_bytes(n: usize) -> Vec<u8> {
     let mut buf = vec![0u8; n];
-    getrandom::getrandom(&mut buf).expect("getrandom failed");
+    // getrandom 失败时回退到基于时间+PID 的伪随机，不 panic
+    if getrandom::getrandom(&mut buf).is_err() {
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64
+            ^ (std::process::id() as u64 * 0x9e3779b97f4a7c15);
+        for (i, b) in buf.iter_mut().enumerate() {
+            let v = seed.wrapping_add(i as u64).wrapping_mul(0x6c62272e07bb0142);
+            *b = (v >> 56) as u8;
+        }
+    }
     buf
 }
 
@@ -159,7 +170,13 @@ impl Parser for ObjectIdGenerator {
             return vec![];
         }
         let oid = generate_object_id();
-        let ts_bytes: [u8; 4] = hex::decode(&oid[..8]).unwrap().try_into().unwrap();
+        let ts_bytes: [u8; 4] = match hex::decode(&oid[..8])
+            .ok()
+            .and_then(|v| v.try_into().ok())
+        {
+            Some(b) => b,
+            None => return vec![],
+        };
         let dt = chrono::DateTime::from_timestamp(u32::from_be_bytes(ts_bytes) as i64, 0)
             .unwrap_or_default()
             .with_timezone(&Utc);
@@ -312,8 +329,7 @@ impl Parser for PswdGenerator {
         let charset_len = PSWD_CHARSET.len(); // 74
         let limit = (256 / charset_len) * charset_len; // 最大无偏范围
         let mut pwd = String::with_capacity(len);
-        let mut buf = vec![0u8; len * 4];
-        getrandom::getrandom(&mut buf).expect("getrandom failed");
+        let mut buf = random_bytes(len * 4);
 
         let mut used = 0;
         for &b in buf.iter() {
