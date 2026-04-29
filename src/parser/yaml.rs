@@ -35,10 +35,14 @@ impl Parser for YamlParser {
             return vec![];
         }
 
-        // 解析
-        let value: serde_yml::Value = match serde_yml::from_str(trimmed) {
-            Ok(v) => v,
-            Err(_) => return vec![],
+        // 解析：用 catch_unwind 防止 libyml 对特定输入直接 panic（已知 libyml bug）
+        let owned = trimmed.to_owned();
+        let parse_result = std::panic::catch_unwind(|| {
+            serde_yml::from_str::<serde_yml::Value>(&owned)
+        });
+        let value = match parse_result {
+            Ok(Ok(v)) => v,
+            _ => return vec![],
         };
 
         // 只对 map / sequence 触发，跳过标量（避免误报纯文本）
