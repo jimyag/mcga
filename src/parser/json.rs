@@ -72,12 +72,20 @@ impl Parser for JsonParser {
 
         let meta = format!(
             "类型：{}  元素数：{}  嵌套深度：{}  大小：{} 字节",
-            type_info, element_count, depth, content.len()
+            type_info,
+            element_count,
+            depth,
+            content.len()
         );
 
-        vec![
-            ParseResult::new("JSON", content, format!("类型：{}  元素数：{}  嵌套深度：{}", type_info, element_count, depth))
-                .with_details(format!("{}\n\n{}", formatted, meta))
-        ]
+        vec![ParseResult::new(
+            "JSON",
+            content,
+            format!(
+                "类型：{}  元素数：{}  嵌套深度：{}",
+                type_info, element_count, depth
+            ),
+        )
+        .with_details(format!("{}\n\n{}", formatted, meta))]
     }
 }

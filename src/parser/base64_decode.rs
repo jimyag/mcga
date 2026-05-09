@@ -48,12 +48,14 @@ fn is_printable(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    s.chars().all(|c| c >= ' ' || c == '\n' || c == '\r' || c == '\t')
+    s.chars()
+        .all(|c| c >= ' ' || c == '\n' || c == '\r' || c == '\t')
 }
 
 /// 检查字符串是否全部由 base64 字符集组成
 fn is_base64_charset(s: &str) -> bool {
-    s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '-' | '_' | '='))
+    s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '-' | '_' | '='))
 }
 
 impl Default for Base64Parser {
@@ -84,16 +86,22 @@ impl Parser for Base64Parser {
             None => return vec![],
         };
 
-        vec![
-            ParseResult::new(
-                "Base64",
-                content,
-                format!("格式：{}  编码长度：{}  解码长度：{}", variant, trimmed.len(), decoded.len()),
-            )
-            .with_details(format!(
-                "{}\n\n格式：{}  编码长度：{}  解码长度：{} 字节",
-                decoded, variant, trimmed.len(), decoded.len()
-            )),
-        ]
+        vec![ParseResult::new(
+            "Base64",
+            content,
+            format!(
+                "格式：{}  编码长度：{}  解码长度：{}",
+                variant,
+                trimmed.len(),
+                decoded.len()
+            ),
+        )
+        .with_details(format!(
+            "{}\n\n格式：{}  编码长度：{}  解码长度：{} 字节",
+            decoded,
+            variant,
+            trimmed.len(),
+            decoded.len()
+        ))]
     }
 }

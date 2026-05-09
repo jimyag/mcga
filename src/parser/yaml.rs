@@ -28,18 +28,16 @@ impl Parser for YamlParser {
         if trimmed.starts_with('{') || trimmed.starts_with('[') {
             return vec![];
         }
-        let looks_like_yaml = trimmed.starts_with("---")
-            || trimmed.starts_with("- ")
-            || trimmed.contains(": ");
+        let looks_like_yaml =
+            trimmed.starts_with("---") || trimmed.starts_with("- ") || trimmed.contains(": ");
         if !looks_like_yaml {
             return vec![];
         }
 
         // 解析：用 catch_unwind 防止 libyml 对特定输入直接 panic（已知 libyml bug）
         let owned = trimmed.to_owned();
-        let parse_result = std::panic::catch_unwind(|| {
-            serde_yml::from_str::<serde_yml::Value>(&owned)
-        });
+        let parse_result =
+            std::panic::catch_unwind(|| serde_yml::from_str::<serde_yml::Value>(&owned));
         let value = match parse_result {
             Ok(Ok(v)) => v,
             _ => return vec![],
@@ -56,20 +54,22 @@ impl Parser for YamlParser {
             Err(_) => return vec![],
         };
 
-        let kind = if value.is_mapping() { "map" } else { "sequence" };
+        let kind = if value.is_mapping() {
+            "map"
+        } else {
+            "sequence"
+        };
 
-        vec![
-            ParseResult::new(
-                "YAML",
-                content,
-                format!("类型：{}  大小：{} 字节", kind, content.len()),
-            )
-            .with_details(format!(
-                "{}\n类型：{}  大小：{} 字节",
-                formatted.trim_end(),
-                kind,
-                content.len()
-            )),
-        ]
+        vec![ParseResult::new(
+            "YAML",
+            content,
+            format!("类型：{}  大小：{} 字节", kind, content.len()),
+        )
+        .with_details(format!(
+            "{}\n类型：{}  大小：{} 字节",
+            formatted.trim_end(),
+            kind,
+            content.len()
+        ))]
     }
 }

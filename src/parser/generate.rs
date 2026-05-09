@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose, Engine as _};
@@ -50,19 +50,32 @@ fn now_secs() -> u64 {
 pub struct UuidGenerator;
 
 impl UuidGenerator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for UuidGenerator { fn default() -> Self { Self::new() } }
+impl Default for UuidGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for UuidGenerator {
-    fn name(&self) -> &'static str { "UUID生成" }
+    fn name(&self) -> &'static str {
+        "UUID生成"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         if content.trim().to_lowercase() != "uuid" {
             return vec![];
         }
         let generated = Uuid::now_v7().to_string();
-        gen_result("UUID生成", content, &generated, format!("UUID v7：{}", generated))
+        gen_result(
+            "UUID生成",
+            content,
+            &generated,
+            format!("UUID v7：{}", generated),
+        )
     }
 }
 
@@ -71,12 +84,20 @@ impl Parser for UuidGenerator {
 pub struct TimestampGenerator;
 
 impl TimestampGenerator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for TimestampGenerator { fn default() -> Self { Self::new() } }
+impl Default for TimestampGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for TimestampGenerator {
-    fn name(&self) -> &'static str { "时间戳生成" }
+    fn name(&self) -> &'static str {
+        "时间戳生成"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         let kw = content.trim().to_lowercase();
@@ -91,7 +112,11 @@ impl Parser for TimestampGenerator {
             "时间戳生成",
             content,
             &ts,
-            format!("Unix 时间戳（秒）：{}\n对应时间：{}", ts, dt.format("%Y-%m-%d %H:%M:%S UTC")),
+            format!(
+                "Unix 时间戳（秒）：{}\n对应时间：{}",
+                ts,
+                dt.format("%Y-%m-%d %H:%M:%S UTC")
+            ),
         )
     }
 }
@@ -101,12 +126,20 @@ impl Parser for TimestampGenerator {
 pub struct TimeGenerator;
 
 impl TimeGenerator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for TimeGenerator { fn default() -> Self { Self::new() } }
+impl Default for TimeGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for TimeGenerator {
-    fn name(&self) -> &'static str { "时间生成" }
+    fn name(&self) -> &'static str {
+        "时间生成"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         if content.trim().to_lowercase() != "time" {
@@ -157,12 +190,20 @@ fn generate_object_id() -> String {
 pub struct ObjectIdGenerator;
 
 impl ObjectIdGenerator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for ObjectIdGenerator { fn default() -> Self { Self::new() } }
+impl Default for ObjectIdGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for ObjectIdGenerator {
-    fn name(&self) -> &'static str { "ObjectId生成" }
+    fn name(&self) -> &'static str {
+        "ObjectId生成"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         let kw = content.trim().to_lowercase();
@@ -170,10 +211,7 @@ impl Parser for ObjectIdGenerator {
             return vec![];
         }
         let oid = generate_object_id();
-        let ts_bytes: [u8; 4] = match hex::decode(&oid[..8])
-            .ok()
-            .and_then(|v| v.try_into().ok())
-        {
+        let ts_bytes: [u8; 4] = match hex::decode(&oid[..8]).ok().and_then(|v| v.try_into().ok()) {
             Some(b) => b,
             None => return vec![],
         };
@@ -184,7 +222,11 @@ impl Parser for ObjectIdGenerator {
             "ObjectId生成",
             content,
             &oid,
-            format!("MongoDB ObjectId：{}\n嵌入时间：{}", oid, dt.format("%Y-%m-%d %H:%M:%S UTC")),
+            format!(
+                "MongoDB ObjectId：{}\n嵌入时间：{}",
+                oid,
+                dt.format("%Y-%m-%d %H:%M:%S UTC")
+            ),
         )
     }
 }
@@ -194,12 +236,20 @@ impl Parser for ObjectIdGenerator {
 pub struct B64Generator;
 
 impl B64Generator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for B64Generator { fn default() -> Self { Self::new() } }
+impl Default for B64Generator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for B64Generator {
-    fn name(&self) -> &'static str { "Base64编码" }
+    fn name(&self) -> &'static str {
+        "Base64编码"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         self.parse_with_prev(content, "")
@@ -222,7 +272,12 @@ impl Parser for B64Generator {
             "Base64编码",
             content,
             &encoded,
-            format!("原文（{} 字节）：\n{}\n\nBase64：\n{}", prev.len(), prev, encoded),
+            format!(
+                "原文（{} 字节）：\n{}\n\nBase64：\n{}",
+                prev.len(),
+                prev,
+                encoded
+            ),
         )
     }
 }
@@ -232,12 +287,20 @@ impl Parser for B64Generator {
 pub struct DB64Generator;
 
 impl DB64Generator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for DB64Generator { fn default() -> Self { Self::new() } }
+impl Default for DB64Generator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for DB64Generator {
-    fn name(&self) -> &'static str { "Base64解码" }
+    fn name(&self) -> &'static str {
+        "Base64解码"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         self.parse_with_prev(content, "")
@@ -262,12 +325,7 @@ impl Parser for DB64Generator {
         {
             Ok(b) => b,
             Err(e) => {
-                return gen_result(
-                    "Base64解码",
-                    content,
-                    "",
-                    format!("解码失败：{}", e),
-                );
+                return gen_result("Base64解码", content, "", format!("解码失败：{}", e));
             }
         };
 
@@ -282,7 +340,11 @@ impl Parser for DB64Generator {
                 "Base64解码",
                 content,
                 &hex::encode(&bytes),
-                format!("解码结果（二进制，{} 字节）：\n{}", bytes.len(), hex::encode(&bytes)),
+                format!(
+                    "解码结果（二进制，{} 字节）：\n{}",
+                    bytes.len(),
+                    hex::encode(&bytes)
+                ),
             ),
         }
     }
@@ -296,12 +358,20 @@ const PSWD_CHARSET: &[u8] =
 pub struct PswdGenerator;
 
 impl PswdGenerator {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
-impl Default for PswdGenerator { fn default() -> Self { Self::new() } }
+impl Default for PswdGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Parser for PswdGenerator {
-    fn name(&self) -> &'static str { "密码生成" }
+    fn name(&self) -> &'static str {
+        "密码生成"
+    }
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         let trimmed = content.trim().to_lowercase();

@@ -50,16 +50,20 @@ impl Parser for Json5Parser {
             "JSON5"
         };
 
-        vec![
-            ParseResult::new(
-                "JSON5",
-                content,
-                format!("{} → 转换为标准 JSON，大小：{} 字节", variant, content.len()),
-            )
-            .with_details(format!(
-                "{}\n\n来源格式：{}  大小：{} 字节",
-                formatted, variant, content.len()
-            )),
-        ]
+        vec![ParseResult::new(
+            "JSON5",
+            content,
+            format!(
+                "{} → 转换为标准 JSON，大小：{} 字节",
+                variant,
+                content.len()
+            ),
+        )
+        .with_details(format!(
+            "{}\n\n来源格式：{}  大小：{} 字节",
+            formatted,
+            variant,
+            content.len()
+        ))]
     }
 }

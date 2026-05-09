@@ -29,7 +29,12 @@ pub struct HistoryResult {
 
 fn history_path() -> Option<PathBuf> {
     // 强制使用 ~/.local/share/mcga/history.json，跨平台一致
-    dirs::home_dir().map(|h| h.join(".local").join("share").join("mcga").join("history.json"))
+    dirs::home_dir().map(|h| {
+        h.join(".local")
+            .join("share")
+            .join("mcga")
+            .join("history.json")
+    })
 }
 
 /// 追加一批解析结果到历史文件
@@ -99,14 +104,25 @@ pub fn print_recent(n: usize) {
     }
 
     let recent: Vec<_> = entries.iter().rev().take(n).collect();
-    println!("最近 {} 条解析记录（共 {} 条）", recent.len(), entries.len());
+    println!(
+        "最近 {} 条解析记录（共 {} 条）",
+        recent.len(),
+        entries.len()
+    );
     println!("{}", "=".repeat(60));
 
     for entry in recent {
         let time = entry.timestamp.format("%Y-%m-%d %H:%M:%S");
-        let parsers: Vec<_> = entry.results.iter().map(|r| r.parser_name.as_str()).collect();
+        let parsers: Vec<_> = entry
+            .results
+            .iter()
+            .map(|r| r.parser_name.as_str())
+            .collect();
         println!("[{}] #{}", time, entry.id);
-        println!("  内容：{}", entry.original_preview.lines().next().unwrap_or(""));
+        println!(
+            "  内容：{}",
+            entry.original_preview.lines().next().unwrap_or("")
+        );
         println!("  解析：{}", parsers.join(", "));
         println!();
     }
@@ -123,13 +139,22 @@ pub fn format_for_overlay(entries: &[HistoryEntry], n: usize) -> String {
 
     for entry in &recent {
         let time = entry.timestamp.format("%m-%d %H:%M:%S");
-        let parsers: Vec<_> = entry.results.iter().map(|r| r.parser_name.as_str()).collect();
+        let parsers: Vec<_> = entry
+            .results
+            .iter()
+            .map(|r| r.parser_name.as_str())
+            .collect();
         out.push_str(&format!(
             "[{}] #{} — {}\n{}\n\n",
             time,
             entry.id,
             parsers.join(", "),
-            entry.original_preview.lines().take(3).collect::<Vec<_>>().join(" ↵ ")
+            entry
+                .original_preview
+                .lines()
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ↵ ")
         ));
     }
 

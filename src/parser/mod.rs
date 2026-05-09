@@ -1,9 +1,9 @@
 mod base64_decode;
 mod cidr;
 mod cron;
-mod generate;
 mod dns;
 mod engine;
+mod generate;
 mod hash;
 mod ip;
 mod ipv6;
@@ -15,14 +15,14 @@ mod uuid;
 mod yaml;
 
 pub use base64_decode::Base64Parser;
-pub use generate::{
-    B64Generator, DB64Generator, ObjectIdGenerator, PswdGenerator, TimeGenerator,
-    TimestampGenerator, UuidGenerator,
-};
 pub use cidr::CidrParser;
 pub use cron::CronParser;
 pub use dns::DnsParser;
 pub use engine::ParserEngine;
+pub use generate::{
+    B64Generator, DB64Generator, ObjectIdGenerator, PswdGenerator, TimeGenerator,
+    TimestampGenerator, UuidGenerator,
+};
 pub use hash::HashParser;
 pub use ip::IpParser;
 pub use ipv6::Ipv6Parser;

@@ -53,15 +53,17 @@ impl Parser for HashParser {
             .collect::<Vec<_>>()
             .join(" ");
 
-        vec![
-            ParseResult::new("Hash", content, format!("算法：{}  长度：{} 位", algo, trimmed.len() * 4))
-                .with_details(format!(
-                    "{}\n\n算法：{}  摘要长度：{} bits ({} 字节)",
-                    grouped,
-                    algo,
-                    trimmed.len() * 4,
-                    trimmed.len() / 2,
-                )),
-        ]
+        vec![ParseResult::new(
+            "Hash",
+            content,
+            format!("算法：{}  长度：{} 位", algo, trimmed.len() * 4),
+        )
+        .with_details(format!(
+            "{}\n\n算法：{}  摘要长度：{} bits ({} 字节)",
+            grouped,
+            algo,
+            trimmed.len() * 4,
+            trimmed.len() / 2,
+        ))]
     }
 }

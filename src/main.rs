@@ -74,7 +74,11 @@ fn main() -> Result<()> {
         Some(Commands::Parse { content, all }) => run_parse(&content, all),
         Some(Commands::Parsers) => list_parsers(),
         Some(Commands::Clip { all }) => run_clip(all),
-        Some(Commands::History { count, clear, overlay }) => {
+        Some(Commands::History {
+            count,
+            clear,
+            overlay,
+        }) => {
             if clear {
                 mcga::history::clear()?;
                 println!("历史记录已清空");
@@ -83,7 +87,10 @@ fn main() -> Result<()> {
                 #[cfg(target_os = "macos")]
                 return run_history_overlay(count);
                 #[cfg(not(target_os = "macos"))]
-                { mcga::history::print_recent(count); Ok(()) }
+                {
+                    mcga::history::print_recent(count);
+                    Ok(())
+                }
             } else {
                 mcga::history::print_recent(count);
                 Ok(())
@@ -92,7 +99,10 @@ fn main() -> Result<()> {
         Some(Commands::InitConfig) => {
             let config = mcga::config_file::load();
             mcga::config_file::save(&config)?;
-            println!("配置文件已写入：{}", mcga::config_file::config_path().unwrap().display());
+            println!(
+                "配置文件已写入：{}",
+                mcga::config_file::config_path().unwrap().display()
+            );
             Ok(())
         }
         None => run_daemon(500),
@@ -160,7 +170,10 @@ fn run_daemon_generic(interval_ms: u64) -> Result<()> {
 fn run_daemon_macos(interval_ms: u64) -> Result<()> {
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 
-    info!("MCGA 守护进程启动（macOS overlay 模式），轮询间隔：{}ms", interval_ms);
+    info!(
+        "MCGA 守护进程启动（macOS overlay 模式），轮询间隔：{}ms",
+        interval_ms
+    );
 
     let mut config = mcga::config_file::load();
     config.poll_interval_ms = interval_ms;
@@ -234,10 +247,7 @@ fn run_daemon_macos(interval_ms: u64) -> Result<()> {
 
 /// 从 channel 取出解析结果并展示，然后重新调度自身（每 100ms）
 #[cfg(target_os = "macos")]
-fn poll_and_reschedule(
-    rx: Arc<Mutex<mpsc::Receiver<Vec<ParseResult>>>>,
-    config: Arc<Config>,
-) {
+fn poll_and_reschedule(rx: Arc<Mutex<mpsc::Receiver<Vec<ParseResult>>>>, config: Arc<Config>) {
     if let Ok(guard) = rx.lock() {
         while let Ok(results) = guard.try_recv() {
             mcga::overlay::show_results(&results, &config);

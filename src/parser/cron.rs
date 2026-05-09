@@ -18,8 +18,9 @@ impl Default for CronParser {
 /// 判断一个字段是否合法（数字、*、/、-、,、? 的组合）
 fn is_valid_field(s: &str) -> bool {
     !s.is_empty()
-        && s.chars()
-            .all(|c| c.is_ascii_digit() || matches!(c, '*' | '/' | '-' | ',' | '?' | 'L' | 'W' | '#'))
+        && s.chars().all(|c| {
+            c.is_ascii_digit() || matches!(c, '*' | '/' | '-' | ',' | '?' | 'L' | 'W' | '#')
+        })
 }
 
 /// 将单个字段解释为自然语言
@@ -65,8 +66,7 @@ fn label(v: &str, names: Option<&[&str]>) -> String {
 
 const WEEKDAY_NAMES: &[&str] = &["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const MONTH_NAMES: &[&str] = &[
-    "", "1月", "2月", "3月", "4月", "5月", "6月",
-    "7月", "8月", "9月", "10月", "11月", "12月",
+    "", "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月",
 ];
 
 impl Parser for CronParser {
@@ -80,11 +80,11 @@ impl Parser for CronParser {
         // 特殊宏
         let macro_desc = match trimmed {
             "@yearly" | "@annually" => Some("每年 1 月 1 日 00:00 执行"),
-            "@monthly"              => Some("每月 1 日 00:00 执行"),
-            "@weekly"               => Some("每周日 00:00 执行"),
-            "@daily" | "@midnight"  => Some("每天 00:00 执行"),
-            "@hourly"               => Some("每小时整点执行"),
-            "@reboot"               => Some("系统重启后执行一次"),
+            "@monthly" => Some("每月 1 日 00:00 执行"),
+            "@weekly" => Some("每周日 00:00 执行"),
+            "@daily" | "@midnight" => Some("每天 00:00 执行"),
+            "@hourly" => Some("每小时整点执行"),
+            "@reboot" => Some("系统重启后执行一次"),
             _ => None,
         };
         if let Some(desc) = macro_desc {
@@ -102,17 +102,21 @@ impl Parser for CronParser {
         let (sec_part, min, hour, dom, month, dow) = if fields.len() == 6 {
             (
                 Some(explain_field(fields[0], "秒", None)),
-                fields[1], fields[2], fields[3], fields[4], fields[5],
+                fields[1],
+                fields[2],
+                fields[3],
+                fields[4],
+                fields[5],
             )
         } else {
             (None, fields[0], fields[1], fields[2], fields[3], fields[4])
         };
 
-        let min_desc   = explain_field(min,   "分钟", None);
-        let hour_desc  = explain_field(hour,  "小时", None);
-        let dom_desc   = explain_field(dom,   "天",   None);
-        let month_desc = explain_field(month, "月",   Some(MONTH_NAMES));
-        let dow_desc   = explain_field(dow,   "周",   Some(WEEKDAY_NAMES));
+        let min_desc = explain_field(min, "分钟", None);
+        let hour_desc = explain_field(hour, "小时", None);
+        let dom_desc = explain_field(dom, "天", None);
+        let month_desc = explain_field(month, "月", Some(MONTH_NAMES));
+        let dow_desc = explain_field(dow, "周", Some(WEEKDAY_NAMES));
 
         let mut lines = vec![
             format!("分钟：{}", min_desc),
@@ -127,9 +131,6 @@ impl Parser for CronParser {
 
         let summary = format!("{}，{}，{}", month_desc, dom_desc, hour_desc);
 
-        vec![
-            ParseResult::new("Cron", content, summary)
-                .with_details(lines.join("\n")),
-        ]
+        vec![ParseResult::new("Cron", content, summary).with_details(lines.join("\n"))]
     }
 }

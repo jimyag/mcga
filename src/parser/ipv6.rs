@@ -89,8 +89,7 @@ impl Parser for Ipv6Parser {
         );
 
         vec![
-            ParseResult::new("IPv6", content, format!("类型：{}", addr_type))
-                .with_details(details),
+            ParseResult::new("IPv6", content, format!("类型：{}", addr_type)).with_details(details),
         ]
     }
 }

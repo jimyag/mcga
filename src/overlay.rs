@@ -1,8 +1,8 @@
 #![cfg(target_os = "macos")]
 
 use std::collections::VecDeque;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -10,7 +10,7 @@ use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject, ClassBuilder, NSObject, Sel};
 use objc2::{msg_send, sel, ClassType, MainThreadOnly};
 use objc2_app_kit::{
-    NSBackingStoreType, NSButton, NSColor, NSEvent, NSFont, NSFloatingWindowLevel, NSPanel,
+    NSBackingStoreType, NSButton, NSColor, NSEvent, NSFloatingWindowLevel, NSFont, NSPanel,
     NSScreen, NSScrollView, NSTextView, NSView, NSWindowStyleMask,
 };
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
@@ -169,7 +169,10 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
         Some(sel!(historyClicked:)),
         mtm,
     );
-    btn.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, BTN_H)));
+    btn.setFrame(NSRect::new(
+        NSPoint::new(0.0, 0.0),
+        NSSize::new(width, BTN_H),
+    ));
     // 无边框按钮 + contentTintColor 可直接设置文字颜色
     btn.setBordered(false);
     let btn_fg = NSColor::colorWithRed_green_blue_alpha(0.92, 0.92, 0.92, 1.0);
@@ -177,10 +180,7 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
     container.addSubview(&**btn);
 
     // ── NSScrollView（占据按钮以上区域）
-    let scroll_rect = NSRect::new(
-        NSPoint::new(0.0, BTN_H),
-        NSSize::new(width, height - BTN_H),
-    );
+    let scroll_rect = NSRect::new(NSPoint::new(0.0, BTN_H), NSSize::new(width, height - BTN_H));
     let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), scroll_rect);
     scroll.setHasVerticalScroller(true);
     scroll.setHasHorizontalScroller(true);
@@ -221,7 +221,11 @@ unsafe fn show_inner(title: &str, content: &str, config: &Config) {
     let target_raw = Retained::into_raw(target) as usize;
     {
         let mut panels = ACTIVE_PANELS.lock().unwrap();
-        panels.push_back(ActivePanel { raw: panel_raw, target_raw, cancelled: Arc::clone(&cancelled) });
+        panels.push_back(ActivePanel {
+            raw: panel_raw,
+            target_raw,
+            cancelled: Arc::clone(&cancelled),
+        });
     }
 
     let dismiss_after = Duration::from_secs(config.overlay_dismiss_secs);
@@ -238,11 +242,10 @@ fn check_hover_and_dismiss(panel_raw: usize, target_raw: usize, cancelled: Arc<A
         return;
     }
 
-    let panel: Retained<NSPanel> =
-        match unsafe { Retained::from_raw(panel_raw as *mut NSPanel) } {
-            Some(p) => p,
-            None => return,
-        };
+    let panel: Retained<NSPanel> = match unsafe { Retained::from_raw(panel_raw as *mut NSPanel) } {
+        Some(p) => p,
+        None => return,
+    };
 
     let frame = panel.frame();
     let mouse: NSPoint = NSEvent::mouseLocation();
