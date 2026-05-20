@@ -17,6 +17,7 @@ use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
 
 use crate::config::Config;
 use crate::parser::ParseResult;
+use crate::text::take_chars;
 
 // ── 历史按钮 action 目标（通过 ClassBuilder 注册自定义 selector）─────────────
 
@@ -80,7 +81,7 @@ pub fn show_results(results: &[ParseResult], config: &Config) {
     let title = format!(
         "[{}] {}",
         results[0].parser_name,
-        &results[0].original[..results[0].original.len().min(40)]
+        take_chars(&results[0].original, 40)
     );
 
     let mut body = String::new();

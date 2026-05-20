@@ -8,6 +8,7 @@ use std::process::Command;
 
 use crate::config::Config;
 use crate::parser::ParseResult;
+use crate::text::take_chars;
 
 /// 桌面通知发送器
 pub struct Notifier {
@@ -59,7 +60,7 @@ impl Notifier {
 
         // 原始内容作为标题
         let original = &results[0].original;
-        let summary = original[..original.len().min(40)].to_string();
+        let summary = take_chars(original, 40);
 
         // 合并所有结果
         let mut body = String::new();
@@ -136,7 +137,7 @@ fn parse_result_notification(result: &ParseResult) -> NotificationContent {
     let title = format!(
         "[{}] {}",
         result.parser_name,
-        &result.original[..result.original.len().min(30)]
+        take_chars(&result.original, 30)
     );
 
     let mut body = result.parsed.clone();

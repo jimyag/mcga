@@ -399,7 +399,7 @@ impl Parser for PswdGenerator {
         let charset_len = PSWD_CHARSET.len(); // 74
         let limit = (256 / charset_len) * charset_len; // 最大无偏范围
         let mut pwd = String::with_capacity(len);
-        let mut buf = random_bytes(len * 4);
+        let buf = random_bytes(len * 4);
 
         let mut used = 0;
         for &b in buf.iter() {

@@ -8,3 +8,4 @@ pub mod notifier;
 #[cfg(target_os = "macos")]
 pub mod overlay;
 pub mod parser;
+pub mod text;

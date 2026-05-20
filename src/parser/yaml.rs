@@ -1,5 +1,7 @@
 use super::{ParseResult, Parser};
 
+const MAX_YAML_INPUT_BYTES: usize = 64 * 1024;
+
 /// YAML 解析器
 /// 仅对解析结果为 map 或 sequence 的内容触发，避免对普通文本误报。
 pub struct YamlParser;
@@ -23,13 +25,19 @@ impl Parser for YamlParser {
 
     fn parse(&self, content: &str) -> Vec<ParseResult> {
         let trimmed = content.trim();
+        if trimmed.len() > MAX_YAML_INPUT_BYTES {
+            return vec![];
+        }
 
-        // 快速过滤：必须包含 ": " / ": \n" 或以 "---" / "- " 开头，排除 JSON
+        // 快速过滤：必须包含 ": " / ": \n" 或以 "---" 开头，排除 JSON。
+        // 单行 "- xxx" 常见于 Markdown bullet/path，不作为 YAML 触发条件。
         if trimmed.starts_with('{') || trimmed.starts_with('[') {
             return vec![];
         }
-        let looks_like_yaml =
-            trimmed.starts_with("---") || trimmed.starts_with("- ") || trimmed.contains(": ");
+        let looks_like_yaml = trimmed.starts_with("---")
+            || trimmed.contains(": ")
+            || trimmed.contains(":\n")
+            || looks_like_sequence(trimmed);
         if !looks_like_yaml {
             return vec![];
         }
@@ -49,9 +57,10 @@ impl Parser for YamlParser {
         }
 
         // 格式化输出
-        let formatted = match serde_yml::to_string(&value) {
-            Ok(s) => s,
-            Err(_) => return vec![],
+        let formatted_result = std::panic::catch_unwind(|| serde_yml::to_string(&value));
+        let formatted = match formatted_result {
+            Ok(Ok(s)) => s,
+            _ => return vec![],
         };
 
         let kind = if value.is_mapping() {
@@ -72,4 +81,13 @@ impl Parser for YamlParser {
             content.len()
         ))]
     }
+}
+
+fn looks_like_sequence(trimmed: &str) -> bool {
+    trimmed
+        .lines()
+        .filter(|line| line.trim_start().starts_with("- "))
+        .take(2)
+        .count()
+        >= 2
 }

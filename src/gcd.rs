@@ -44,7 +44,7 @@ fn into_ctx<F: FnOnce() + Send + 'static>(f: F) -> *mut c_void {
 
 fn main_queue() -> DispatchQueue {
     // 与 C 宏 dispatch_get_main_queue() 等价：取全局变量的地址
-    unsafe { &raw const _dispatch_main_q as *mut c_void }
+    &raw const _dispatch_main_q as *mut c_void
 }
 
 /// 在主队列上延迟执行闭包

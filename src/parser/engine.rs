@@ -1,8 +1,11 @@
+use std::panic::{catch_unwind, AssertUnwindSafe};
+
 use super::{
     B64Generator, Base64Parser, CidrParser, CronParser, DB64Generator, DnsParser, HashParser,
     IpParser, Ipv6Parser, Json5Parser, JsonParser, ObjectIdGenerator, ObjectIdParser, ParseResult,
     TimestampParser, UuidGenerator, UuidParser, YamlParser,
 };
+use tracing::warn;
 
 /// 解析引擎，管理所有解析器
 pub struct ParserEngine {
@@ -52,7 +55,7 @@ impl ParserEngine {
         }
 
         for parser in &self.parsers {
-            let results = parser.parse(trimmed);
+            let results = run_parser(parser.as_ref(), trimmed, "");
             if !results.is_empty() {
                 return results.into_iter().next();
             }
@@ -74,8 +77,18 @@ impl ParserEngine {
 
         self.parsers
             .iter()
-            .flat_map(|parser| parser.parse_with_prev(trimmed, prev))
+            .flat_map(|parser| run_parser(parser.as_ref(), trimmed, prev))
             .collect()
+    }
+}
+
+fn run_parser(parser: &dyn Parser, content: &str, prev: &str) -> Vec<ParseResult> {
+    match catch_unwind(AssertUnwindSafe(|| parser.parse_with_prev(content, prev))) {
+        Ok(results) => results,
+        Err(_) => {
+            warn!("解析器 {} panic，已跳过本次解析", parser.name());
+            Vec::new()
+        }
     }
 }
 

@@ -11,6 +11,7 @@ use tracing_subscriber::EnvFilter;
 use mcga::config::Config;
 use mcga::monitor::ClipboardMonitor;
 use mcga::parser::{ParseResult, ParserEngine};
+use mcga::text::preview_chars;
 
 #[derive(Parser)]
 #[command(name = "mcga")]
@@ -291,14 +292,7 @@ fn run_clip(all: bool) -> Result<()> {
 
     match monitor.get_current()? {
         Some(content) => {
-            println!(
-                "剪切板内容：{}\n",
-                if content.len() > 50 {
-                    format!("{}...", &content[..50])
-                } else {
-                    content.clone()
-                }
-            );
+            println!("剪切板内容：{}\n", preview_chars(&content, 50));
             run_parse(&content, all)
         }
         None => {

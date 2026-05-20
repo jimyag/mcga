@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::parser::ParseResult;
+use crate::text::take_chars;
 
 const MAX_ENTRIES: usize = 500;
 /// 原始内容预览最多保留的字符数
@@ -51,8 +52,8 @@ pub fn append(original: &str, results: &[ParseResult]) -> Result<()> {
     let mut entries = load_all().unwrap_or_default();
 
     let id = entries.last().map(|e| e.id + 1).unwrap_or(1);
-    let preview = if original.len() > ORIGINAL_PREVIEW_LEN {
-        format!("{}…", &original[..ORIGINAL_PREVIEW_LEN])
+    let preview = if original.chars().count() > ORIGINAL_PREVIEW_LEN {
+        format!("{}…", take_chars(original, ORIGINAL_PREVIEW_LEN))
     } else {
         original.to_string()
     };
