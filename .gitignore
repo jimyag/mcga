@@ -2,6 +2,9 @@
 /target/
 **/*.rs.bk
 
+# SwiftPM
+/.build/
+
 # IDE
 .idea/
 .vscode/
@@ -11,4 +14,3 @@
 # OS
 .DS_Store
 Thumbs.db
-

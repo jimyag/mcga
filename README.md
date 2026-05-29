@@ -1,6 +1,11 @@
 # MCGA - My Clipboard Guard Assistant
 
-剪切板监控与解析工具，自动识别剪切板内容并发送桌面通知。
+剪切板监控与解析工具，自动识别剪切板内容并展示解析结果。
+
+当前仓库包含两套实现：
+
+- Swift macOS App：macOS 15+ 状态栏应用，监听剪切板变化后自动弹出浮层，支持一键复制结果。
+- Rust CLI/daemon：原有命令行和守护进程实现。
 
 ## 功能
 
@@ -16,6 +21,54 @@
 | JSON      | 结构分析                                |
 
 ## 编译
+
+### Swift macOS App
+
+依赖：
+
+- macOS 15+
+- Swift 6 / Xcode Command Line Tools
+
+验证核心解析器：
+
+```bash
+source ~/.zshrc && swift run MCGASmokeTests
+```
+
+编译状态栏 App：
+
+```bash
+source ~/.zshrc && swift build --product MCGA
+```
+
+打包为 `.app`：
+
+```bash
+source ~/.zshrc && bash scripts/build-macos-app.sh
+```
+
+输出：
+
+```text
+.build/MCGA.app
+```
+
+打开 App：
+
+```bash
+source ~/.zshrc && open .build/MCGA.app
+```
+
+如果已经运行旧版本，先退出或执行：
+
+```bash
+source ~/.zshrc && pkill MCGA
+source ~/.zshrc && open .build/MCGA.app
+```
+
+打开后不会出现在 Dock 中，请在 macOS 菜单栏点击 `MCGA` 图标查看当前结果和历史。复制可解析内容后，App 会自动弹出浮层。
+
+### Rust CLI/daemon
 
 ### 依赖
 
@@ -46,6 +99,13 @@ cargo build --target x86_64-pc-windows-gnu --release
 输出：`target/x86_64-pc-windows-gnu/release/mcga.exe`
 
 ## 使用
+
+### macOS 状态栏 App
+
+
+浮层和状态栏面板都支持复制解析结果。状态栏面板还提供暂停监听、刷新历史、清空历史和退出。
+
+### Rust CLI/daemon
 
 > macOS 下通知通过系统自带的 `osascript` 发送，需确保“终端”或你使用的终端应用已在系统通知设置中允许通知。
 

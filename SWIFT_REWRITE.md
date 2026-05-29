@@ -1,0 +1,38 @@
+# MCGA Swift macOS App
+
+This is the macOS-only Swift rewrite target for MCGA. It requires macOS 15+ and uses SwiftUI/AppKit for a menu bar app.
+
+## Shape
+
+- `Sources/MCGA`: menu bar app, clipboard polling, popover UI, copy actions, pause, history, quit.
+- `Sources/MCGACore`: parser engine, parser implementations, history store.
+- `Sources/MCGASmokeTests`: executable smoke verification without XCTest dependency.
+- `Packaging/Info.plist`: minimal `.app` bundle metadata with `LSUIElement=true`.
+- `scripts/build-macos-app.sh`: builds `.build/MCGA.app`.
+
+## Parser Coverage
+
+The Swift parser engine keeps the current Rust parser priority and covers:
+
+- keyword generators: UUID v7, timestamp, RFC3339 time, ObjectID, Base64 encode/decode, password
+- CIDR
+- UUID
+- ObjectID
+- Hash
+- IPv6
+- public IPv4 with best-effort ip-api lookup
+- timestamp
+- Cron
+- JSON
+- JSON5/JSONC common clipboard forms
+- YAML
+- Base64 text decode
+- DNS over HTTPS lookup for A, AAAA, and CNAME
+
+## Verification
+
+```bash
+source ~/.zshrc && swift run MCGASmokeTests
+source ~/.zshrc && swift build --product MCGA
+source ~/.zshrc && bash scripts/build-macos-app.sh
+```
