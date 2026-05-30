@@ -1,0 +1,16 @@
+<UserControl x:Class="MCGA.TrayIconView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tb="http://www.hardcodet.net/taskbar">
+    <tb:TaskbarIcon x:Name="TrayIcon"
+                    ToolTipText="MCGA - Clipboard Guard"
+                    IconSource="pack://application:,,,/tray_icon.ico">
+        <tb:TaskbarIcon.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Settings" Click="OnSettingsClick" />
+                <Separator />
+                <MenuItem Header="Quit" Click="OnQuitClick" />
+            </ContextMenu>
+        </tb:TaskbarIcon.ContextMenu>
+    </tb:TaskbarIcon>
+</UserControl>

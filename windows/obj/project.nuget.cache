@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "dgSpecHash": "kgR1hagy7ls=",
+  "success": true,
+  "projectFilePath": "/Users/jimyag/src/github/jimyag/mcga/windows/MCGA.csproj",
+  "expectedPackageFiles": [
+    "/Users/jimyag/.nuget/packages/h.generatedicons.system.drawing/2.4.1/h.generatedicons.system.drawing.2.4.1.nupkg.sha512",
+    "/Users/jimyag/.nuget/packages/h.notifyicon/2.4.1/h.notifyicon.2.4.1.nupkg.sha512",
+    "/Users/jimyag/.nuget/packages/h.notifyicon.wpf/2.4.1/h.notifyicon.wpf.2.4.1.nupkg.sha512",
+    "/Users/jimyag/.nuget/packages/microsoft.win32.systemevents/10.0.0/microsoft.win32.systemevents.10.0.0.nupkg.sha512",
+    "/Users/jimyag/.nuget/packages/system.drawing.common/10.0.0/system.drawing.common.10.0.0.nupkg.sha512",
+    "/Users/jimyag/.nuget/packages/microsoft.windowsdesktop.app.ref/10.0.8/microsoft.windowsdesktop.app.ref.10.0.8.nupkg.sha512"
+  ],
+  "logs": []
+}
