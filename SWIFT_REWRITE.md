@@ -22,12 +22,26 @@ The Swift parser engine keeps the current Rust parser priority and covers:
 - IPv6
 - public IPv4 with best-effort ip-api lookup
 - timestamp
+- HTTP status code
+- integer base conversion
 - Cron
+- URL structure and query parsing
 - JSON
 - JSON5/JSONC common clipboard forms
+- XML formatting
+- TOML formatting
 - YAML
+- HTML entity decoding
 - Base64 text decode
 - DNS over HTTPS lookup for A, AAAA, and CNAME
+
+The menu bar popover also supports persistent preferences through `UserDefaults`:
+
+- Chinese / English UI labels
+- light / dark theme
+- per-parser enable / disable switches
+- parser descriptions and examples in a dedicated settings sheet
+- non-blocking copied feedback after copy actions
 
 ## Verification
 

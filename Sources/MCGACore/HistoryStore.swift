@@ -17,10 +17,12 @@ public struct HistoryEntry: Identifiable, Codable, Equatable, Sendable {
 public struct HistoryResult: Codable, Equatable, Sendable {
     public let parserName: String
     public let parsed: String
+    public let details: String?
 
-    public init(parserName: String, parsed: String) {
+    public init(parserName: String, parsed: String, details: String? = nil) {
         self.parserName = parserName
         self.parsed = parsed
+        self.details = details
     }
 }
 
@@ -46,7 +48,7 @@ public actor HistoryStore {
             id: nextID,
             timestamp: Date(),
             originalPreview: preview,
-            results: results.map { HistoryResult(parserName: $0.parserName, parsed: $0.parsed) }
+            results: results.map { HistoryResult(parserName: $0.parserName, parsed: $0.parsed, details: $0.details) }
         ))
         if entries.count > maxEntries {
             entries.removeFirst(entries.count - maxEntries)
