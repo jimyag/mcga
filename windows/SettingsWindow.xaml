@@ -1,0 +1,133 @@
+<Window x:Class="MCGA.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MCGA Settings" Height="680" Width="620"
+        WindowStartupLocation="CenterScreen" Background="{Binding WindowBackground}"
+        BorderBrush="{Binding BorderBrushColor}" BorderThickness="0">
+
+    <Window.Resources>
+        <!-- Segmented Control Button Style -->
+        <Style x:Key="SegmentedRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{Binding TextPrimaryBrush}"/>
+            <Setter Property="Padding" Value="24,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{Binding DataContext.AccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#11105660"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Title Bar -->
+            <RowDefinition Height="*"/>    <!-- Settings Form -->
+        </Grid.RowDefinitions>
+
+        <!-- Custom Header Title -->
+        <Border Grid.Row="0" BorderBrush="{Binding BorderBrushColor}" BorderThickness="0,0,0,1" Padding="16,14">
+            <DockPanel>
+                <TextBlock Text="{Binding SettingsTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center"/>
+                <Button Content="✕" HorizontalAlignment="Right" Click="BtnClose_Click" Background="Transparent" BorderThickness="0" Foreground="{Binding TextPrimaryBrush}" FontSize="14" Cursor="Hand" Padding="6,2"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Scrollable Settings Panel -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+                
+                <!-- General Section Card -->
+                <Border Background="{Binding CardBackground}" BorderBrush="{Binding BorderBrushColor}" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel>
+                        <!-- Language Option -->
+                        <StackPanel>
+                            <TextBlock Text="{Binding LanguageText}" Foreground="{Binding TextPrimaryBrush}" FontSize="12.5" FontWeight="SemiBold"/>
+                            <Border BorderBrush="{Binding BorderBrushColor}" BorderThickness="1" CornerRadius="8" Background="{Binding WindowBackground}" Padding="4" HorizontalAlignment="Left" Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Content="{Binding ChineseText}" Style="{StaticResource SegmentedRadioButtonStyle}" GroupName="Lang" IsChecked="{Binding IsChineseChecked}"/>
+                                    <RadioButton Content="{Binding EnglishText}" Style="{StaticResource SegmentedRadioButtonStyle}" GroupName="Lang" IsChecked="{Binding IsEnglishChecked}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Theme Option -->
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="{Binding ThemeText}" Foreground="{Binding TextPrimaryBrush}" FontSize="12.5" FontWeight="SemiBold"/>
+                            <Border BorderBrush="{Binding BorderBrushColor}" BorderThickness="1" CornerRadius="8" Background="{Binding WindowBackground}" Padding="4" HorizontalAlignment="Left" Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Content="{Binding LightText}" Style="{StaticResource SegmentedRadioButtonStyle}" GroupName="Thm" IsChecked="{Binding IsLightChecked}"/>
+                                    <RadioButton Content="{Binding DarkText}" Style="{StaticResource SegmentedRadioButtonStyle}" GroupName="Thm" IsChecked="{Binding IsDarkChecked}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Parsers List Section -->
+                <StackPanel>
+                    <TextBlock Text="{Binding ParsersText}" Foreground="{Binding TextPrimaryBrush}" FontSize="13.5" FontWeight="SemiBold"/>
+                    
+                    <ItemsControl ItemsSource="{Binding ParserViewModelList}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding DataContext.CardBackground, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        BorderBrush="{Binding DataContext.BorderBrushColor, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                    
+                                    <StackPanel>
+                                        <!-- Header Switch -->
+                                        <CheckBox IsChecked="{Binding IsEnabled}" Content="{Binding Name}" 
+                                                  Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                  FontWeight="SemiBold" FontSize="13" VerticalContentAlignment="Center" Cursor="Hand"/>
+                                        
+                                        <!-- Description -->
+                                        <TextBlock Text="{Binding Description}" 
+                                                   Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                   FontSize="12" TextWrapping="Wrap" Margin="22,6,0,0"/>
+
+                                        <!-- Examples (Visible only if examples exist) -->
+                                        <ItemsControl ItemsSource="{Binding Examples}" Margin="22,10,0,0" Visibility="{Binding ExamplesVisibility}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="{Binding DataContext.BorderBrushColor, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                            BorderThickness="1" CornerRadius="6" Background="{Binding DataContext.WindowBackground, RelativeSource={RelativeSource AncestorType=Window}}" Padding="8" Margin="0,4,0,4">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding DataContext.ClipboardContentText, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10.5" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding Input}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontFamily="Consolas" FontSize="11.5" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                            
+                                                            <TextBlock Text="{Binding DataContext.ExpectedOutputText, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10.5" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                            <TextBlock Text="{Binding Expected}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="11.5" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

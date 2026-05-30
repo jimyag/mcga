@@ -9,9 +9,14 @@ namespace MCGA
             InitializeComponent();
         }
 
+        private void OnTrayLeftMouseDown(object sender, RoutedEventArgs e)
+        {
+            ((App)Application.Current).ShowPopover();
+        }
+
         private void OnSettingsClick(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Settings window will be implemented in a future phase.", "MCGA Settings");
+            ((App)Application.Current).ShowSettings();
         }
 
         private void OnQuitClick(object sender, RoutedEventArgs e)

@@ -1,0 +1,189 @@
+<Window x:Class="MCGA.ClipboardPopoverWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MCGA"
+        Title="MCGA" Height="560" Width="460"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" Deactivated="Window_Deactivated" Topmost="True">
+    
+    <Window.Resources>
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <!-- Custom Button Style for Hover Animation -->
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{Binding TextPrimaryBrush}"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#22105660"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#44105660"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="OuterBorder" Background="{Binding WindowBackground}" CornerRadius="10" BorderBrush="{Binding BorderBrushColor}" BorderThickness="1" Margin="8">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8" Color="Black" Opacity="0.18" ShadowDepth="1" Direction="270"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Toolbar -->
+                <RowDefinition Height="Auto"/> <!-- Notice Banner -->
+                <RowDefinition Height="*"/>    <!-- Scrollable Content -->
+            </Grid.RowDefinitions>
+
+            <!-- Toolbar -->
+            <Border Grid.Row="0" Background="{Binding HeaderBackground}" CornerRadius="9,9,0,0" Padding="12,10">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" DockPanel.Dock="Left">
+                        <TextBlock Text="🔍" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="MCGA" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                        <!-- Pause / Resume -->
+                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnPause_Click" ToolTip="{Binding PauseBtnTooltip}" Foreground="White" Margin="0,0,6,0">
+                            <TextBlock Text="{Binding PauseBtnText}" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
+                        </Button>
+                        <!-- Refresh -->
+                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnRefresh_Click" ToolTip="{Binding RefreshTooltip}" Foreground="White" Margin="0,0,6,0">
+                            <TextBlock Text="" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
+                        </Button>
+                        <!-- Settings -->
+                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnSettings_Click" ToolTip="{Binding SettingsTooltip}" Foreground="White" Margin="0,0,6,0">
+                            <TextBlock Text="" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
+                        </Button>
+                        <!-- Quit -->
+                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnQuit_Click" ToolTip="{Binding QuitTooltip}" Foreground="White">
+                            <TextBlock Text="" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Copy Notice Banner -->
+            <Border Grid.Row="1" Background="{Binding AccentBrush}" Visibility="{Binding NoticeVisibility}" Padding="8,6">
+                <TextBlock Text="{Binding Model.CopyNotice}" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            </Border>
+
+            <!-- Content Area -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                <StackPanel Margin="14">
+                    
+                    <!-- Empty State -->
+                    <StackPanel Visibility="{Binding EmptyStateVisibility}" Margin="0,10">
+                        <TextBlock Text="{Binding EmptyStateTitle}" Foreground="{Binding TextPrimaryBrush}" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding EmptyStateDesc}" Foreground="{Binding TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <!-- Current Content Section -->
+                    <StackPanel Visibility="{Binding ContentVisibility}">
+                        <DockPanel>
+                            <TextBlock Text="{Binding CurrentClipboardText}" Foreground="{Binding TextPrimaryBrush}" FontWeight="SemiBold" FontSize="12" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                            <Button Style="{StaticResource IconButtonStyle}" HorizontalAlignment="Right" Click="BtnCopyOriginal_Click" ToolTip="{Binding CopyOriginalTooltip}">
+                                <TextBlock Text="" FontSize="11" FontFamily="Segoe MDL2 Assets"/>
+                            </Button>
+                        </DockPanel>
+                        
+                        <Border Background="{Binding CardBackground}" BorderBrush="{Binding BorderBrushColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding Model.CurrentContent}" FontFamily="Consolas" FontSize="12" Foreground="{Binding TextPrimaryBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Parse Results List -->
+                    <ItemsControl ItemsSource="{Binding Model.Results}" Visibility="{Binding ContentVisibility}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding DataContext.CardBackground, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        BorderBrush="{Binding DataContext.BorderBrushColor, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="{Binding ParserName}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                                            <Button Style="{StaticResource IconButtonStyle}" HorizontalAlignment="Right" Click="BtnCopyResult_Click" ToolTip="{Binding DataContext.CopyResultTooltip, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <TextBlock Text="" FontSize="11" FontFamily="Segoe MDL2 Assets"/>
+                                            </Button>
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding Parsed}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap" FontSize="12.5" Margin="0,6,0,0"/>
+                                        <Border Visibility="{Binding Details, Converter={StaticResource NullToVisibilityConverter}}" 
+                                                Background="#0A105660" CornerRadius="4" Padding="6" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding Details}" FontFamily="Consolas" FontSize="11.5" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- History Section -->
+                    <StackPanel Margin="0,14,0,0">
+                        <Border BorderBrush="{Binding BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                            <DockPanel>
+                                <TextBlock Text="{Binding HistoryText}" Foreground="{Binding TextPrimaryBrush}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                                <Button Style="{StaticResource IconButtonStyle}" HorizontalAlignment="Right" Click="BtnClearHistory_Click" ToolTip="{Binding ClearHistoryTooltip}">
+                                    <TextBlock Text="" FontSize="11" FontFamily="Segoe MDL2 Assets"/>
+                                </Button>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- No History State -->
+                        <TextBlock Text="{Binding NoHistoryText}" Foreground="{Binding TextSecondaryBrush}" FontSize="12" Visibility="{Binding NoHistoryVisibility}" Margin="0,8,0,0"/>
+
+                        <!-- History List -->
+                        <ItemsControl ItemsSource="{Binding Model.History}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{Binding DataContext.BorderBrushColor, RelativeSource={RelativeSource AncestorType=Window}}" BorderThickness="0,0,0,1" Padding="0,8" Margin="0,0,0,4">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10.5"/>
+                                            <TextBlock Text="{Binding OriginalPreview}" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="11" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontFamily="Consolas" Margin="0,6,0,0"/>
+                                            
+                                            <!-- Nested Results inside History -->
+                                            <ItemsControl ItemsSource="{Binding Results}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{Binding DataContext.CardBackground, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                                BorderBrush="{Binding DataContext.BorderBrushColor, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                                BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,4,0,0">
+                                                            <StackPanel>
+                                                                <DockPanel>
+                                                                    <TextBlock Text="{Binding ParserName}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
+                                                                    <Button Style="{StaticResource IconButtonStyle}" HorizontalAlignment="Right" Click="BtnCopyHistoryResult_Click" ToolTip="{Binding DataContext.CopyHistoryResultTooltip, RelativeSource={RelativeSource AncestorType=Window}}" Padding="4,2">
+                                                                        <TextBlock Text="" FontSize="10" FontFamily="Segoe MDL2 Assets"/>
+                                                                    </Button>
+                                                                </DockPanel>
+                                                                <TextBlock Text="{Binding Parsed}" Foreground="{Binding DataContext.TextPrimaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                                <Border Visibility="{Binding Details, Converter={StaticResource NullToVisibilityConverter}}" 
+                                                                        Background="#0A105660" CornerRadius="4" Padding="4" Margin="0,4,0,0">
+                                                                    <TextBlock Text="{Binding Details}" FontFamily="Consolas" FontSize="10.5" Foreground="{Binding DataContext.TextSecondaryBrush, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</Window>
