@@ -23,9 +23,21 @@ jobs:
         env:
           CONFIGURATION: release
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Create DMG
         run: |
-          hdiutil create -volname "MCGA" -srcfolder .build/MCGA.app -ov -format UDZO .build/MCGA.dmg
+          create-dmg \
+            --volname "MCGA" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "MCGA.app" 175 190 \
+            --hide-extension "MCGA.app" \
+            --app-drop-link 425 190 \
+            ".build/MCGA.dmg" \
+            ".build/MCGA.app"
 
       - name: Create Release
         env:
