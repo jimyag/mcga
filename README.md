@@ -22,6 +22,20 @@ macOS menu bar clipboard parser. MCGA watches the clipboard, runs built-in and c
 
 ![MCGA settings](docs/images/settings.png)
 
+## Installation
+
+Download the latest DMG from the [Releases](https://github.com/jimyag/mcga/releases) page. Open the DMG and drag `MCGA.app` to your `Applications` folder.
+
+**Note:** Because MCGA is an open-source tool and not signed with an Apple Developer certificate, macOS Gatekeeper may show a warning that the app "is damaged and can't be opened." You must manually remove the quarantine attribute before running it for the first time.
+
+Open `Terminal` and run:
+
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/MCGA.app
+```
+
+Enter your password when prompted. You can then open MCGA normally from Launchpad or your Applications folder.
+
 ## Build
 
 Requirements:
