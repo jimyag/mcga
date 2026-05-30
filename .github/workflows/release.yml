@@ -42,11 +42,22 @@ jobs:
             ".build/MCGA.dmg" \
             ".build/MCGA.app"
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Windows Executable
+        run: |
+          dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=false -o ../macos/.build/windows
+        working-directory: ../windows
+
       - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create ${{ github.ref_name }} \
             .build/MCGA.dmg \
+            .build/windows/MCGA.exe \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes

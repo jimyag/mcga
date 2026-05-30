@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-macos:
     runs-on: macos-15
     defaults:
       run:
@@ -23,3 +23,17 @@ jobs:
         
       - name: Run Smoke Tests
         run: swift run MCGASmokeTests
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          
+      - name: Build
+        run: dotnet build
+        working-directory: ./windows
