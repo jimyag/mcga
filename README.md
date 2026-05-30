@@ -43,6 +43,12 @@ Requirements:
 - macOS 15+
 - Swift 6 / Xcode Command Line Tools
 
+First, enter the macOS directory:
+
+```bash
+cd macos
+```
+
 Verify core parsers:
 
 ```bash
