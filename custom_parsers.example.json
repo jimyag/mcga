@@ -1,0 +1,26 @@
+{
+  "parsers": [
+    {
+      "name": "Demo Command",
+      "kind": "command",
+      "description": {
+        "zh": "执行本地命令解析 demo: 开头的剪切板内容。",
+        "en": "Runs a local command for clipboard text starting with demo:."
+      },
+      "examples": [
+        {
+          "input": "demo:123",
+          "expected": {
+            "zh": "剪切板内容为 demo:123 时，命令 stdout 的第一行会显示为解析结果。",
+            "en": "When clipboard content is demo:123, the first stdout line is shown as the parsed result."
+          }
+        }
+      ],
+      "match": "^demo:",
+      "command": "$HOME/.config/mcga/parsers/demo.sh",
+      "args": [],
+      "timeoutMs": 500,
+      "enabled": true
+    }
+  ]
+}

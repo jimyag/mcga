@@ -19,7 +19,9 @@ func expectParser(_ input: String, _ parserName: String, _ message: String) {
 let engine = ParserEngine()
 let names = engine.parserNames
 for name in [
+    "CIDR", "UUID", "ObjectID", "Hash", "IPv6", "IP", "Timestamp",
     "HTTP Status", "Number Base", "Cron", "URL", "JSON", "JSON5", "XML", "TOML",
+    "YAML", "HTML Entity", "Base64", "DNS",
 ] {
     expect(names.contains(name), "missing parser \(name)")
 }

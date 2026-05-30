@@ -24,10 +24,13 @@ public struct ParseResult: Identifiable, Codable, Equatable, Sendable {
 
 public protocol ContentParser: Sendable {
     var name: String { get }
+    var info: ParserInfo? { get }
     func parse(_ content: String, previousContent: String) -> [ParseResult]
 }
 
 public extension ContentParser {
+    var info: ParserInfo? { nil }
+
     func parse(_ content: String) -> [ParseResult] {
         parse(content, previousContent: "")
     }

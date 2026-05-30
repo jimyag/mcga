@@ -1,167 +1,116 @@
 # MCGA - My Clipboard Guard Assistant
 
-剪切板监控与解析工具，自动识别剪切板内容并展示解析结果。
+macOS menu bar clipboard parser. MCGA watches the clipboard, runs built-in and custom parsers, then shows parsed results in a popover and an auto popup.
 
-当前仓库包含两套实现：
+## Features
 
-- Swift macOS App：macOS 15+ 状态栏应用，监听剪切板变化后自动弹出浮层，支持一键复制结果。
-- Rust CLI/daemon：原有命令行和守护进程实现。
+- macOS 15+ menu bar app, no Dock icon.
+- Clipboard auto-detection with hover-preserved popup.
+- Current result and history in the menu bar popover.
+- Copy parsed result content without copying parser titles.
+- Parser settings window with Chinese / English UI, light / dark theme, and per-parser toggles.
+- Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Base64, DNS, and keyword generators.
+- Custom command parsers from local scripts.
 
-## 功能
+## Build
 
-支持以下内容解析：
-
-| 解析器    | 说明                                    |
-| --------- | --------------------------------------- |
-| CIDR      | 网段解析（可用 IP 范围、网络/广播地址） |
-| UUID      | v1/v4/v6/v7 版本，提取时间戳            |
-| ObjectID  | MongoDB ObjectID，提取创建时间          |
-| IPv4/IPv6 | 公网 IP 地理位置查询                    |
-| Timestamp | Unix 时间戳（秒/毫秒/微秒/纳秒）        |
-| HTTP      | HTTP status code 说明                   |
-| Number    | 二/八/十/十六进制互转                   |
-| URL       | URL 结构和 query 参数解析               |
-| JSON      | 结构分析                                |
-| XML/TOML  | 格式化和结构识别                        |
-| HTML      | HTML entities 解码                      |
-
-## 编译
-
-### Swift macOS App
-
-依赖：
+Requirements:
 
 - macOS 15+
 - Swift 6 / Xcode Command Line Tools
 
-验证核心解析器：
+Verify core parsers:
 
 ```bash
 source ~/.zshrc && swift run MCGASmokeTests
 ```
 
-编译状态栏 App：
+Build the executable:
 
 ```bash
 source ~/.zshrc && swift build --product MCGA
 ```
 
-打包为 `.app`：
+Package `.build/MCGA.app`:
 
 ```bash
 source ~/.zshrc && bash scripts/build-macos-app.sh
 ```
 
-输出：
-
-```text
-.build/MCGA.app
-```
-
-打开 App：
+Open the app:
 
 ```bash
 source ~/.zshrc && open .build/MCGA.app
 ```
 
-如果已经运行旧版本，先退出或执行：
+If an old version is running:
 
 ```bash
 source ~/.zshrc && pkill MCGA
 source ~/.zshrc && open .build/MCGA.app
 ```
 
-打开后不会出现在 Dock 中，请在 macOS 菜单栏点击 `MCGA` 图标查看当前结果和历史。复制可解析内容后，App 会自动弹出浮层。
+After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
 
-### Rust CLI/daemon
+## Custom Command Parsers
 
-### 依赖
+Custom parsers are loaded from:
 
-- Rust 1.70+
-- Windows 交叉编译需要 `mingw-w64`
+```text
+~/.config/mcga/custom_parsers.json
+```
 
-### Linux 原生编译
+Only command parsers are supported. MCGA executes the configured command, writes the clipboard text to stdin, and reads stdout:
+
+- exit code `0` means success
+- empty stdout means no result
+- the first stdout line is shown as the parsed value
+- multi-line stdout is preserved as result details
+- stderr is ignored
+- command paths support absolute paths, `~`, `$HOME`, and `${HOME}`
+- commands must be executable files
+- `timeoutMs` is clamped to 50-3000 ms, default 500 ms
+
+Example:
+
+```json
+{
+  "parsers": [
+    {
+      "name": "Demo Command",
+      "kind": "command",
+      "description": {
+        "zh": "执行本地命令解析 demo: 开头的剪切板内容。",
+        "en": "Runs a local command for clipboard text starting with demo:."
+      },
+      "examples": [
+        {
+          "input": "demo:123",
+          "expected": {
+            "zh": "命令 stdout 的第一行会显示为解析结果。",
+            "en": "The first stdout line is shown as the parsed result."
+          }
+        }
+      ],
+      "match": "^demo:",
+      "command": "$HOME/.config/mcga/parsers/demo.sh",
+      "args": [],
+      "timeoutMs": 500,
+      "enabled": true
+    }
+  ]
+}
+```
+
+Example script:
 
 ```bash
-cargo build --release
+#!/usr/bin/env bash
+set -euo pipefail
+input="$(cat)"
+printf 'Parsed %s\n' "$input"
+printf 'Original clipboard: %s\n' "$input"
 ```
-
-输出：`target/release/mcga`
-
-### Windows 交叉编译（WSL/Linux）
-
-```bash
-# 安装 Windows target
-rustup target add x86_64-pc-windows-gnu
-
-# 安装 mingw-w64（Ubuntu/Debian）
-sudo apt install mingw-w64
-
-# 编译
-cargo build --target x86_64-pc-windows-gnu --release
-```
-
-输出：`target/x86_64-pc-windows-gnu/release/mcga.exe`
-
-## 使用
-
-### macOS 状态栏 App
-
-
-浮层和状态栏面板都支持复制解析结果。状态栏面板还提供暂停监听、刷新历史、清空历史和退出。历史记录会展示每条解析结果，复制历史结果时只复制结果正文，不带解析器标题。
-
-状态栏面板的设置区支持：
-
-- 中文 / 英文界面切换
-- 浅色 / 深色主题切换
-- 按解析器启用或关闭解析能力
-- 每个解析器的说明和示例
-
-点击状态栏面板右上角齿轮按钮打开设置弹窗。复制结果后面板会显示短暂的“已复制”提示。
-
-### Rust CLI/daemon
-
-> macOS 下通知通过系统自带的 `osascript` 发送，需确保“终端”或你使用的终端应用已在系统通知设置中允许通知。
-
-### 守护进程模式
-
-```bash
-# 启动监控（默认 500ms 轮询）
-mcga daemon
-
-# 自定义轮询间隔
-mcga daemon --interval 1000
-```
-
-### 手动解析
-
-```bash
-# 解析指定内容
-mcga parse "192.168.1.0/24"
-
-# 解析剪切板内容
-mcga clip
-
-# 显示所有匹配结果
-mcga parse --all "507f1f77bcf86cd799439011"
-```
-
-### 查看解析器列表
-
-```bash
-mcga parsers
-```
-
-## 配置
-
-
-
-```csv
-node,ip
-node1,10.0.0.1
-node2,10.0.0.2
-```
-
 
 ## License
 

@@ -1,39 +1,5 @@
 import Foundation
 
-    private let ipMap: [String: String]
-    private let nodeMap: [String: String]
-
-    init() {
-        let path = FileManager.default.homeDirectoryForCurrentUser
-        guard let text = try? String(contentsOf: path, encoding: .utf8) else {
-            self.ipMap = [:]
-            self.nodeMap = [:]
-            return
-        }
-        var ipMap: [String: String] = [:]
-        var nodeMap: [String: String] = [:]
-        for (index, line) in text.split(separator: "\n", omittingEmptySubsequences: true).enumerated() {
-            guard index > 0 else { continue }
-            let parts = line.split(separator: ",", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { continue }
-            nodeMap[parts[0]] = parts[1]
-            ipMap[parts[1]] = parts[0]
-        }
-        self.ipMap = ipMap
-        self.nodeMap = nodeMap
-    }
-
-    func parse(_ content: String, previousContent: String) -> [ParseResult] {
-        if let node = ipMap[content] {
-            return [ParseResult(parserName: name, original: content, parsed: "节点：\(node)")]
-        }
-        if let ip = nodeMap[content] {
-            return [ParseResult(parserName: name, original: content, parsed: "IP:\(ip)")]
-        }
-        return []
-    }
-}
-
 struct CIDRParser: ContentParser {
     let name = "CIDR"
     private let pattern = ParserUtilities.regex(#"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(\d{1,2})$"#)

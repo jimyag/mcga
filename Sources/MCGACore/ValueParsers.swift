@@ -173,30 +173,6 @@ struct TimestampParser: ContentParser {
     }
 }
 
-    private let pattern = ParserUtilities.regex(#"^[A-Za-z0-9_-]{16}$"#)
-
-    func parse(_ content: String, previousContent: String) -> [ParseResult] {
-        guard ParserUtilities.fullMatch(pattern, content) != nil,
-              let (data, _) = ParserUtilities.dataFromBase64Variants(content),
-              data.count == 12
-        else { return [] }
-        let bytes = [UInt8](data)
-        let pid = UInt32(bytes[0]) | UInt32(bytes[1]) << 8 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 24
-        let unixNano = bytes[4..<12].enumerated().reduce(Int64(0)) { acc, item in
-            acc | (Int64(item.element) << Int64(item.offset * 8))
-        }
-        let seconds = TimeInterval(unixNano) / 1_000_000_000
-        let date = Date(timeIntervalSince1970: seconds)
-        guard date >= Date(timeIntervalSince1970: 1_420_070_400) else { return [] }
-        return [ParseResult(
-            parserName: name,
-            original: content,
-            parsed: "时间：\(ParserUtilities.utcString(from: date))\nPID: \(pid)",
-            details: "UnixNano: \(unixNano)\nISO 8601: \(ParserUtilities.isoString(from: date))"
-        )]
-    }
-}
-
 extension UUID {
     var uuidBytes: [UInt8] {
         withUnsafeBytes(of: uuid) { Array($0) }

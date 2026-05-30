@@ -12,6 +12,9 @@ public struct ParserEngine: Sendable {
             Base64EncodeGenerator(),
             Base64DecodeGenerator(),
             PasswordGenerator(),
+        ]
+        + CustomCommandParser.load()
+        + [
             CIDRParser(),
             UUIDParser(),
             ObjectIDParser(),
@@ -39,7 +42,7 @@ public struct ParserEngine: Sendable {
     }
 
     public var parserInfos: [ParserInfo] {
-        parsers.map { ParserCatalog.info(for: $0.name) }
+        parsers.map { $0.info ?? ParserCatalog.info(for: $0.name) }
     }
 
     public func parse(

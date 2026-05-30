@@ -1,20 +1,21 @@
 # MCGA Swift macOS App
 
-This is the macOS-only Swift rewrite target for MCGA. It requires macOS 15+ and uses SwiftUI/AppKit for a menu bar app.
+This repository is macOS-only and uses SwiftUI/AppKit for a menu bar clipboard parser. It requires macOS 15+.
 
 ## Shape
 
-- `Sources/MCGA`: menu bar app, clipboard polling, popover UI, copy actions, pause, history, quit.
-- `Sources/MCGACore`: parser engine, parser implementations, history store.
+- `Sources/MCGA`: menu bar app, clipboard polling, popover UI, settings window, copy actions, pause, history, quit.
+- `Sources/MCGACore`: parser engine, built-in parsers, custom command parsers, history store.
 - `Sources/MCGASmokeTests`: executable smoke verification without XCTest dependency.
-- `Packaging/Info.plist`: minimal `.app` bundle metadata with `LSUIElement=true`.
+- `Packaging/Info.plist`: `.app` bundle metadata with `LSUIElement=true`.
 - `scripts/build-macos-app.sh`: builds `.build/MCGA.app`.
 
 ## Parser Coverage
 
-The Swift parser engine keeps the current Rust parser priority and covers:
+The parser engine covers:
 
 - keyword generators: UUID v7, timestamp, RFC3339 time, ObjectID, Base64 encode/decode, password
+- custom command parsers from `~/.config/mcga/custom_parsers.json`
 - CIDR
 - UUID
 - ObjectID
@@ -40,7 +41,7 @@ The menu bar popover also supports persistent preferences through `UserDefaults`
 - Chinese / English UI labels
 - light / dark theme
 - per-parser enable / disable switches
-- parser descriptions and examples in a dedicated settings sheet
+- parser descriptions and examples in an independent settings window
 - non-blocking copied feedback after copy actions
 
 ## Verification
