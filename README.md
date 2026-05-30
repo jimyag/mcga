@@ -12,6 +12,16 @@ macOS menu bar clipboard parser. MCGA watches the clipboard, runs built-in and c
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.
 
+## Screenshots
+
+### Popover
+
+![MCGA popover](docs/images/popover.png)
+
+### Settings
+
+![MCGA settings](docs/images/settings.png)
+
 ## Build
 
 Requirements:
@@ -22,32 +32,32 @@ Requirements:
 Verify core parsers:
 
 ```bash
-source ~/.zshrc && swift run MCGASmokeTests
+swift run MCGASmokeTests
 ```
 
 Build the executable:
 
 ```bash
-source ~/.zshrc && swift build --product MCGA
+swift build --product MCGA
 ```
 
 Package `.build/MCGA.app`:
 
 ```bash
-source ~/.zshrc && bash scripts/build-macos-app.sh
+bash scripts/build-macos-app.sh
 ```
 
 Open the app:
 
 ```bash
-source ~/.zshrc && open .build/MCGA.app
+open .build/MCGA.app
 ```
 
 If an old version is running:
 
 ```bash
-source ~/.zshrc && pkill MCGA
-source ~/.zshrc && open .build/MCGA.app
+pkill MCGA
+open .build/MCGA.app
 ```
 
 After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.

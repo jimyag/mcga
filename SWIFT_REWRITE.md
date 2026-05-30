@@ -47,7 +47,7 @@ The menu bar popover also supports persistent preferences through `UserDefaults`
 ## Verification
 
 ```bash
-source ~/.zshrc && swift run MCGASmokeTests
-source ~/.zshrc && swift build --product MCGA
-source ~/.zshrc && bash scripts/build-macos-app.sh
+swift run MCGASmokeTests
+swift build --product MCGA
+bash scripts/build-macos-app.sh
 ```

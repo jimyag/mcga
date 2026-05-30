@@ -9,11 +9,11 @@ MCGA is a macOS-only Swift menu bar app that watches clipboard changes and displ
 ## Commands
 
 ```bash
-source ~/.zshrc && swift run MCGASmokeTests
-source ~/.zshrc && swift build --product MCGA
-source ~/.zshrc && bash scripts/build-macos-app.sh
-source ~/.zshrc && open .build/MCGA.app
-source ~/.zshrc && pkill MCGA
+swift run MCGASmokeTests
+swift build --product MCGA
+bash scripts/build-macos-app.sh
+open .build/MCGA.app
+pkill MCGA
 ```
 
 ## Architecture
