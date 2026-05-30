@@ -50,7 +50,7 @@ jobs:
       - name: Build Windows Executable
         run: |
           dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=false -o ../macos/.build/windows
-        working-directory: ../windows
+        working-directory: windows
 
       - name: Create Release
         env:
