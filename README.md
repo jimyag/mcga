@@ -112,6 +112,13 @@ windows\bin\Release\net8.0-windows\win-x64\publish\MCGA.exe
 
 MCGA runs in the Windows notification area. If the icon is hidden under `^`, pin it from Windows taskbar settings or drag it next to the other system tray icons. Start-at-login writes the current executable path to the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` registry key.
 
+Windows behavior:
+
+- Closing MCGA panels hides the window; it does not quit the app.
+- To quit MCGA, use `Quit` from the notification area icon menu.
+- Starting a new MCGA process replaces the old running process.
+- Enabling start at login registers the exact executable path currently running.
+
 ## Custom Command Parsers
 
 Custom parsers are loaded from:
