@@ -1,8 +1,8 @@
-﻿<Application x:Class="MCGA.App"
+<Application x:Class="MCGA.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MCGA">
     <Application.Resources>
-         
+         <local:TrayIconView x:Key="TrayIconView" />
     </Application.Resources>
 </Application>

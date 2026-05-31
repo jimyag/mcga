@@ -24,7 +24,7 @@ namespace MCGA
             Preferences = new AppPreferences();
             Model = new ClipboardModel(Preferences);
 
-            _trayIconView = new TrayIconView();
+            _trayIconView = (TrayIconView)FindResource("TrayIconView");
 
             Model.OnNewResults = (content, results) =>
             {
