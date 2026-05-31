@@ -267,9 +267,9 @@ namespace MCGA.MCGACore
             try
             {
                 string url = $"http://ip-api.com/json/{Uri.EscapeDataString(ip)}?fields=status,message,country,city,isp,reverse,query&lang=zh-CN";
-                using var response = _httpClient.GetAsync(url).GetAwaiter().GetResult();
+                using var response = _httpClient.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (!response.IsSuccessStatusCode) return null;
-                string json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                string json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 var result = JsonSerializer.Deserialize<IPGeo>(json, options);
                 if (result != null && result.Status == "success")
@@ -322,10 +322,10 @@ namespace MCGA.MCGACore
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/dns-json"));
 
-                using var response = _httpClient.SendAsync(request).GetAwaiter().GetResult();
+                using var response = _httpClient.SendAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (!response.IsSuccessStatusCode) return new List<DNSAnswer>();
 
-                string json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                string json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var res = JsonSerializer.Deserialize<DNSResponse>(json, options);
                 if (res != null && res.Status == 0)

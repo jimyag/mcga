@@ -166,22 +166,33 @@ namespace MCGA
             if (string.IsNullOrEmpty(content) || content == CurrentContent) return;
 
             var enabledParsers = _preferences.EnabledParserNames(_engine.ParserNames);
-            var parsed = _engine.ParseAll(content, _previousContent, enabledParsers);
+            string prevContent = _previousContent;
+            uint sequenceAtStart = currentSequence;
 
-            _previousContent = content;
-
-            if (parsed.Count == 0) return;
-
-            CurrentContent = content;
-            Results = parsed;
-            LastUpdated = DateTime.Now;
-
-            OnNewResults?.Invoke(content, parsed);
-
-            Task.Run(async () =>
+            Task.Run(() =>
             {
-                await HistoryStore.Shared.AppendAsync(content, parsed);
-                Application.Current.Dispatcher.Invoke(RefreshHistory);
+                var parsed = _engine.ParseAll(content, prevContent, enabledParsers);
+                if (parsed.Count == 0) return;
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // Verify clipboard sequence hasn't changed since we started parsing
+                    if (sequenceAtStart == GetClipboardSequenceNumber())
+                    {
+                        CurrentContent = content;
+                        Results = parsed;
+                        LastUpdated = DateTime.Now;
+                        _previousContent = content;
+
+                        OnNewResults?.Invoke(content, parsed);
+
+                        Task.Run(async () =>
+                        {
+                            await HistoryStore.Shared.AppendAsync(content, parsed);
+                            Application.Current.Dispatcher.Invoke(RefreshHistory);
+                        });
+                    }
+                });
             });
         }
 
