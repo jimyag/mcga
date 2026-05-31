@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MCGA.MCGACore;
+using Brush = System.Windows.Media.Brush;
 
 namespace MCGA
 {
@@ -34,7 +36,7 @@ namespace MCGA
         private string _pauseBtnTooltip = "";
         private string _refreshTooltip = "";
         private string _settingsTooltip = "";
-        private string _quitTooltip = "";
+        private string _closeTooltip = "";
         private string _emptyStateTitle = "";
         private string _emptyStateDesc = "";
         private string _currentClipboardText = "";
@@ -49,7 +51,7 @@ namespace MCGA
         public string PauseBtnTooltip { get => _pauseBtnTooltip; set => SetProperty(ref _pauseBtnTooltip, value); }
         public string RefreshTooltip { get => _refreshTooltip; set => SetProperty(ref _refreshTooltip, value); }
         public string SettingsTooltip { get => _settingsTooltip; set => SetProperty(ref _settingsTooltip, value); }
-        public string QuitTooltip { get => _quitTooltip; set => SetProperty(ref _quitTooltip, value); }
+        public string CloseTooltip { get => _closeTooltip; set => SetProperty(ref _closeTooltip, value); }
         public string EmptyStateTitle { get => _emptyStateTitle; set => SetProperty(ref _emptyStateTitle, value); }
         public string EmptyStateDesc { get => _emptyStateDesc; set => SetProperty(ref _emptyStateDesc, value); }
         public string CurrentClipboardText { get => _currentClipboardText; set => SetProperty(ref _currentClipboardText, value); }
@@ -104,7 +106,7 @@ namespace MCGA
             PauseBtnTooltip = Preferences.Text(Model.IsPaused ? TextKey.Resume : TextKey.Pause);
             RefreshTooltip = Preferences.Text(TextKey.RefreshHistory);
             SettingsTooltip = Preferences.Text(TextKey.OpenSettings);
-            QuitTooltip = Preferences.Text(TextKey.Quit);
+            CloseTooltip = Preferences.Text(TextKey.Close);
 
             UpdatePauseBtnState();
 
@@ -172,9 +174,9 @@ namespace MCGA
             ((App)Application.Current).ShowSettings();
         }
 
-        private void BtnQuit_Click(object sender, RoutedEventArgs e)
+        private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
-            Application.Current.Shutdown();
+            Hide();
         }
 
         private void BtnCopyOriginal_Click(object sender, RoutedEventArgs e)

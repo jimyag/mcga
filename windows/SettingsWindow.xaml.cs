@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 using MCGA.MCGACore;
+using Brush = System.Windows.Media.Brush;
 
 namespace MCGA
 {
@@ -13,6 +14,7 @@ namespace MCGA
     {
         public ClipboardModel Model { get; }
         public AppPreferences Preferences { get; }
+        private bool _allowClose;
 
         private Brush _windowBackground = Brushes.White;
         private Brush _headerBackground = Brushes.Teal;
@@ -38,6 +40,7 @@ namespace MCGA
         private string _themeText = "";
         private string _lightText = "";
         private string _darkText = "";
+        private string _startAtLoginText = "";
         private string _parsersText = "";
         private string _clipboardContentText = "";
         private string _expectedOutputText = "";
@@ -49,6 +52,7 @@ namespace MCGA
         public string ThemeText { get => _themeText; set => SetProperty(ref _themeText, value); }
         public string LightText { get => _lightText; set => SetProperty(ref _lightText, value); }
         public string DarkText { get => _darkText; set => SetProperty(ref _darkText, value); }
+        public string StartAtLoginText { get => _startAtLoginText; set => SetProperty(ref _startAtLoginText, value); }
         public string ParsersText { get => _parsersText; set => SetProperty(ref _parsersText, value); }
         public string ClipboardContentText { get => _clipboardContentText; set => SetProperty(ref _clipboardContentText, value); }
         public string ExpectedOutputText { get => _expectedOutputText; set => SetProperty(ref _expectedOutputText, value); }
@@ -110,6 +114,16 @@ namespace MCGA
             }
         }
 
+        public bool IsStartupEnabled
+        {
+            get => StartupManager.IsEnabled();
+            set
+            {
+                StartupManager.SetEnabled(value);
+                OnPropertyChanged();
+            }
+        }
+
         public List<ParserViewModel> ParserViewModelList { get; }
 
         public SettingsWindow(ClipboardModel model, AppPreferences preferences)
@@ -136,6 +150,7 @@ namespace MCGA
             ThemeText = Preferences.Text(TextKey.Theme);
             LightText = Preferences.Text(TextKey.LightWord);
             DarkText = Preferences.Text(TextKey.DarkWord);
+            StartAtLoginText = Preferences.Text(TextKey.StartAtLogin);
             ParsersText = Preferences.Text(TextKey.Parsers);
             ClipboardContentText = Preferences.Text(TextKey.ClipboardContent);
             ExpectedOutputText = Preferences.Text(TextKey.ExpectedOutput);
@@ -145,6 +160,7 @@ namespace MCGA
             OnPropertyChanged(nameof(IsEnglishChecked));
             OnPropertyChanged(nameof(IsLightChecked));
             OnPropertyChanged(nameof(IsDarkChecked));
+            OnPropertyChanged(nameof(IsStartupEnabled));
 
             // 3. Colors update
             if (Preferences.Theme == AppTheme.Light)
@@ -177,7 +193,24 @@ namespace MCGA
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
+            Hide();
+        }
+
+        public void CloseForExit()
+        {
+            _allowClose = true;
             Close();
+        }
+
+        private void Window_Closing(object? sender, CancelEventArgs e)
+        {
+            if (_allowClose)
+            {
+                return;
+            }
+
+            e.Cancel = true;
+            Hide();
         }
 
         #region INotifyPropertyChanged

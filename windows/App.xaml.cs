@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using MCGA.MCGACore;
 
 namespace MCGA
 {
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
         public AppPreferences Preferences { get; private set; } = null!;
         public ClipboardModel Model { get; private set; } = null!;
@@ -15,34 +16,73 @@ namespace MCGA
         private SettingsWindow? _settingsWindow;
         private readonly List<FloatingOverlayWindow> _activeOverlays = new List<FloatingOverlayWindow>();
 
-        protected override void OnStartup(StartupEventArgs e)
+        public App()
         {
-            base.OnStartup(e);
+            AppLogger.Initialize();
+            AppLogger.Info("App constructor started");
 
-            ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-            Preferences = new AppPreferences();
-            Model = new ClipboardModel(Preferences);
-
-            _trayIconView = (TrayIconView)FindResource("TrayIconView");
-
-            Model.OnNewResults = (content, results) =>
+            DispatcherUnhandledException += (sender, args) =>
             {
-                ShowFloatingOverlay(content, results);
+                AppLogger.Error("Dispatcher unhandled exception", args.Exception);
             };
 
-            Model.Start();
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+            {
+                AppLogger.Error($"AppDomain unhandled exception. IsTerminating={args.IsTerminating}", args.ExceptionObject as Exception);
+            };
+
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                AppLogger.Error("Unobserved task exception", args.Exception);
+            };
+
+            AppLogger.Info("App exception handlers registered");
+        }
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            AppLogger.Info("OnStartup started");
+
+            try
+            {
+                base.OnStartup(e);
+                AppLogger.Info("Base OnStartup completed");
+
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                AppLogger.Info("ShutdownMode set to OnExplicitShutdown");
+
+                Preferences = new AppPreferences();
+                AppLogger.Info("Preferences loaded");
+
+                Model = new ClipboardModel(Preferences);
+                AppLogger.Info("Clipboard model created");
+
+                _trayIconView = (TrayIconView)FindResource("TrayIconView");
+                AppLogger.Info("Tray icon resource resolved");
+
+                Model.OnNewResults = (content, results) =>
+                {
+                    AppLogger.Info($"New parser results received. ContentLength={content.Length}, ResultCount={results.Count}");
+                    ShowFloatingOverlay(content, results);
+                };
+
+                Model.Start();
+                AppLogger.Info($"Application startup completed. LogPath={AppLogger.LogPath}");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("OnStartup failed", ex);
+                throw;
+            }
         }
 
         public void ShowPopover()
         {
-            if (_popoverWindow == null)
-            {
-                _popoverWindow = new ClipboardPopoverWindow(Model, Preferences);
-                _popoverWindow.Closed += (s, e) => _popoverWindow = null;
-            }
+            AppLogger.Info("ShowPopover requested");
 
-            if (_popoverWindow.IsVisible)
+            EnsurePopoverWindow();
+
+            if (_popoverWindow!.IsVisible)
             {
                 _popoverWindow.Hide();
             }
@@ -54,15 +94,33 @@ namespace MCGA
             }
         }
 
+        private void EnsurePopoverWindow()
+        {
+            if (_popoverWindow != null)
+            {
+                return;
+            }
+
+            _popoverWindow = new ClipboardPopoverWindow(Model, Preferences);
+            _popoverWindow.Closed += (s, e) => _popoverWindow = null;
+            AppLogger.Info("Popover window created");
+        }
+
         public void ShowSettings()
         {
+            AppLogger.Info("ShowSettings requested");
+
             if (_settingsWindow != null)
             {
-                _settingsWindow.Activate();
+                if (!_settingsWindow.IsVisible)
+                {
+                    _settingsWindow.Show();
+                }
                 if (_settingsWindow.WindowState == WindowState.Minimized)
                 {
                     _settingsWindow.WindowState = WindowState.Normal;
                 }
+                _settingsWindow.Activate();
                 return;
             }
 
@@ -75,7 +133,7 @@ namespace MCGA
 
         public void CloseSettings()
         {
-            _settingsWindow?.Close();
+            _settingsWindow?.CloseForExit();
         }
 
         public void NotifyPreferenceChanged()
@@ -92,6 +150,8 @@ namespace MCGA
         {
             Dispatcher.Invoke(() =>
             {
+                AppLogger.Info($"Showing floating overlay. ActiveOverlayCount={_activeOverlays.Count}, ResultCount={results.Count}");
+
                 while (_activeOverlays.Count >= 2)
                 {
                     var oldest = _activeOverlays[0];
@@ -113,6 +173,8 @@ namespace MCGA
         {
             Dispatcher.Invoke(() =>
             {
+                AppLogger.Info($"Removing floating overlay. ActiveOverlayCount={_activeOverlays.Count}");
+
                 if (_activeOverlays.Remove(window))
                 {
                     window.Close();
@@ -206,8 +268,12 @@ namespace MCGA
 
         protected override void OnExit(ExitEventArgs e)
         {
-            _trayIconView?.TrayIcon.Dispose();
+            AppLogger.Info($"OnExit started. ApplicationExitCode={e.ApplicationExitCode}");
+            CloseSettings();
+            _trayIconView?.Dispose();
+            AppLogger.Info("Tray icon disposed");
             base.OnExit(e);
+            AppLogger.Info("OnExit completed");
         }
     }
 }

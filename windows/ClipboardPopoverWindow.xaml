@@ -67,8 +67,8 @@
                         <Button Style="{StaticResource IconButtonStyle}" Click="BtnSettings_Click" ToolTip="{Binding SettingsTooltip}" Foreground="White" Margin="0,0,6,0">
                             <TextBlock Text="" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
                         </Button>
-                        <!-- Quit -->
-                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnQuit_Click" ToolTip="{Binding QuitTooltip}" Foreground="White">
+                        <!-- Close panel -->
+                        <Button Style="{StaticResource IconButtonStyle}" Click="BtnClose_Click" ToolTip="{Binding CloseTooltip}" Foreground="White">
                             <TextBlock Text="" FontSize="12" FontFamily="Segoe MDL2 Assets"/>
                         </Button>
                     </StackPanel>

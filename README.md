@@ -1,10 +1,11 @@
 # MCGA - My Clipboard Guard Assistant
 
-macOS menu bar clipboard parser. MCGA watches the clipboard, runs built-in and custom parsers, then shows parsed results in a popover and an auto popup.
+Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-in and custom parsers, then shows parsed results in a popover and an auto popup.
 
 ## Features
 
 - macOS 15+ menu bar app, no Dock icon.
+- Windows notification area app with auto popup, settings, single-instance replacement, and optional start at login.
 - Clipboard auto-detection with hover-preserved popup.
 - Current result and history in the menu bar popover.
 - Copy parsed result content without copying parser titles.
@@ -22,6 +23,12 @@ macOS menu bar clipboard parser. MCGA watches the clipboard, runs built-in and c
 
 ![MCGA settings](docs/images/settings.png)
 
+### Windows
+
+![MCGA Windows popup](docs/images/windows-popup.png)
+
+![MCGA Windows notification area](docs/images/windows-notification-area.png)
+
 ## Installation
 
 Download the latest DMG from the [Releases](https://github.com/jimyag/mcga/releases) page. Open the DMG and drag `MCGA.app` to your `Applications` folder.
@@ -37,6 +44,8 @@ sudo xattr -rd com.apple.quarantine /Applications/MCGA.app
 Enter your password when prompted. You can then open MCGA normally from Launchpad or your Applications folder.
 
 ## Build
+
+### macOS
 
 Requirements:
 
@@ -81,6 +90,27 @@ open .build/MCGA.app
 ```
 
 After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
+
+### Windows
+
+Requirements:
+
+- Windows 10/11
+- .NET 8 SDK
+
+Build and publish a self-contained single-file executable:
+
+```powershell
+dotnet publish windows\MCGA.csproj -c Release -r win-x64 --self-contained true
+```
+
+The published executable is generated at:
+
+```text
+windows\bin\Release\net8.0-windows\win-x64\publish\MCGA.exe
+```
+
+MCGA runs in the Windows notification area. If the icon is hidden under `^`, pin it from Windows taskbar settings or drag it next to the other system tray icons. Start-at-login writes the current executable path to the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` registry key.
 
 ## Custom Command Parsers
 

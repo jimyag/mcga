@@ -74,6 +74,7 @@ namespace MCGA
         {
             _preferences = preferences;
             _lastSequence = GetClipboardSequenceNumber();
+            AppLogger.Info($"ClipboardModel created. InitialSequence={_lastSequence}");
 
             _timer = new DispatcherTimer(DispatcherPriority.Background)
             {
@@ -84,8 +85,10 @@ namespace MCGA
 
         public void Start()
         {
+            AppLogger.Info("ClipboardModel.Start called");
             RefreshHistory();
             _timer.Start();
+            AppLogger.Info("Clipboard polling timer started");
         }
 
         public void TogglePaused()
@@ -106,11 +109,19 @@ namespace MCGA
         {
             Task.Run(async () =>
             {
-                var entries = await HistoryStore.Shared.GetRecentAsync(30);
-                Application.Current.Dispatcher.Invoke(() =>
+                try
                 {
-                    History = entries;
-                });
+                    var entries = await HistoryStore.Shared.GetRecentAsync(30);
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        History = entries;
+                    });
+                    AppLogger.Info($"History refreshed. EntryCount={entries.Count}");
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Error("RefreshHistory failed", ex);
+                }
             });
         }
 
@@ -124,6 +135,7 @@ namespace MCGA
             }
             catch
             {
+                AppLogger.Info("Clipboard copy failed because clipboard is locked");
                 // Clipboard might be locked by another process
             }
 
@@ -132,13 +144,20 @@ namespace MCGA
             Task.Run(async () =>
             {
                 await Task.Delay(1400);
-                Application.Current.Dispatcher.Invoke(() =>
+                try
                 {
-                    if (CopyNotice == _preferences.Text(TextKey.Copied))
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        CopyNotice = null;
-                    }
-                });
+                        if (CopyNotice == _preferences.Text(TextKey.Copied))
+                        {
+                            CopyNotice = null;
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Error("Copy notice cleanup failed", ex);
+                }
             });
         }
 
@@ -160,6 +179,7 @@ namespace MCGA
             }
             catch
             {
+                AppLogger.Info("Clipboard read skipped because clipboard is locked");
                 return; // Clipboard currently locked, try next time
             }
 
@@ -171,28 +191,48 @@ namespace MCGA
 
             Task.Run(() =>
             {
-                var parsed = _engine.ParseAll(content, prevContent, enabledParsers);
-                if (parsed.Count == 0) return;
-
-                Application.Current.Dispatcher.Invoke(() =>
+                try
                 {
-                    // Verify clipboard sequence hasn't changed since we started parsing
-                    if (sequenceAtStart == GetClipboardSequenceNumber())
+                    AppLogger.Info($"Parsing clipboard content. Sequence={sequenceAtStart}, ContentLength={content.Length}, EnabledParserCount={enabledParsers.Count}");
+                    var parsed = _engine.ParseAll(content, prevContent, enabledParsers);
+                    AppLogger.Info($"Parsing completed. ResultCount={parsed.Count}");
+                    if (parsed.Count == 0) return;
+
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        CurrentContent = content;
-                        Results = parsed;
-                        LastUpdated = DateTime.Now;
-                        _previousContent = content;
-
-                        OnNewResults?.Invoke(content, parsed);
-
-                        Task.Run(async () =>
+                        // Verify clipboard sequence hasn't changed since we started parsing
+                        if (sequenceAtStart == GetClipboardSequenceNumber())
                         {
-                            await HistoryStore.Shared.AppendAsync(content, parsed);
-                            Application.Current.Dispatcher.Invoke(RefreshHistory);
-                        });
-                    }
-                });
+                            CurrentContent = content;
+                            Results = parsed;
+                            LastUpdated = DateTime.Now;
+                            _previousContent = content;
+
+                            OnNewResults?.Invoke(content, parsed);
+
+                            Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await HistoryStore.Shared.AppendAsync(content, parsed);
+                                    Application.Current.Dispatcher.Invoke(RefreshHistory);
+                                }
+                                catch (Exception ex)
+                                {
+                                    AppLogger.Error("History append failed", ex);
+                                }
+                            });
+                        }
+                        else
+                        {
+                            AppLogger.Info("Parsed result skipped because clipboard sequence changed");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Error("Clipboard parsing task failed", ex);
+                }
             });
         }
 

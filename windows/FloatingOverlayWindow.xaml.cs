@@ -12,6 +12,8 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using MCGA.MCGACore;
+using Brush = System.Windows.Media.Brush;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace MCGA
 {

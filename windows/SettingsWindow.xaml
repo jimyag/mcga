@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MCGA Settings" Height="680" Width="620"
         WindowStartupLocation="CenterScreen" Background="{Binding WindowBackground}"
-        BorderBrush="{Binding BorderBrushColor}" BorderThickness="0">
+        BorderBrush="{Binding BorderBrushColor}" BorderThickness="0"
+        Closing="Window_Closing">
 
     <Window.Resources>
         <!-- Segmented Control Button Style -->
@@ -79,6 +80,11 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
+
+                        <!-- Startup Option -->
+                        <CheckBox IsChecked="{Binding IsStartupEnabled}" Content="{Binding StartAtLoginText}"
+                                  Foreground="{Binding TextPrimaryBrush}" FontWeight="SemiBold" FontSize="12.5"
+                                  VerticalContentAlignment="Center" Cursor="Hand" Margin="0,14,0,0"/>
                     </StackPanel>
                 </Border>
 
