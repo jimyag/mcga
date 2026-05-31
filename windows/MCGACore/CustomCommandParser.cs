@@ -82,7 +82,13 @@ namespace MCGA.MCGACore
             }
 
             string? executable = ExpandCommandPath(_config.Command);
-            if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
+            if (string.IsNullOrEmpty(executable))
+            {
+                return new List<ParseResult>();
+            }
+
+            bool isPath = executable.Contains(Path.DirectorySeparatorChar) || executable.Contains(Path.AltDirectorySeparatorChar);
+            if (isPath && !File.Exists(executable))
             {
                 return new List<ParseResult>();
             }

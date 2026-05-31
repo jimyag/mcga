@@ -192,6 +192,12 @@ namespace MCGA
             }
         }
 
+        protected override void OnClosed(EventArgs e)
+        {
+            _dismissTimer.Stop();
+            base.OnClosed(e);
+        }
+
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler? PropertyChanged;
 
