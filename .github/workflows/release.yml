@@ -19,28 +19,13 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.app
 
-      - name: Build and Package
-        run: |
-          chmod +x scripts/build-macos-app.sh
-          bash scripts/build-macos-app.sh
-        env:
-          CONFIGURATION: release
-
       - name: Install create-dmg
         run: brew install create-dmg
 
-      - name: Create DMG
-        run: |
-          create-dmg \
-            --volname "MCGA" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "MCGA.app" 175 190 \
-            --hide-extension "MCGA.app" \
-            --app-drop-link 425 190 \
-            ".build/MCGA.dmg" \
-            ".build/MCGA.app"
+      - name: Build and Create DMG
+        run: bash scripts/package-macos-dmg.sh
+        env:
+          CONFIGURATION: release
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

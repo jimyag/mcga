@@ -3,14 +3,74 @@ import Foundation
 public struct HistoryEntry: Identifiable, Codable, Equatable, Sendable {
     public let id: UInt64
     public let timestamp: Date
+    public let contentKind: HistoryContentKind?
+    public let originalContent: String?
     public let originalPreview: String
     public let results: [HistoryResult]
+    public let attachment: HistoryAttachment?
 
-    public init(id: UInt64, timestamp: Date, originalPreview: String, results: [HistoryResult]) {
+    public init(
+        id: UInt64,
+        timestamp: Date,
+        contentKind: HistoryContentKind? = .text,
+        originalContent: String? = nil,
+        originalPreview: String,
+        results: [HistoryResult],
+        attachment: HistoryAttachment? = nil
+    ) {
         self.id = id
         self.timestamp = timestamp
+        self.contentKind = contentKind
+        self.originalContent = originalContent
         self.originalPreview = originalPreview
         self.results = results
+        self.attachment = attachment
+    }
+}
+
+public enum HistoryContentKind: String, Codable, Equatable, Sendable {
+    case text
+    case image
+    case file
+}
+
+public enum HistoryPreviewKind: String, Codable, Equatable, Sendable {
+    case none
+    case text
+    case image
+}
+
+public struct HistoryAttachment: Codable, Equatable, Sendable {
+    public let previewKind: HistoryPreviewKind
+    public let assetPath: String?
+    public let filePath: String?
+    public let fileName: String?
+    public let fileType: String?
+    public let fileSize: Int64?
+    public let imageWidth: Int?
+    public let imageHeight: Int?
+    public let textPreview: String?
+
+    public init(
+        previewKind: HistoryPreviewKind,
+        assetPath: String? = nil,
+        filePath: String? = nil,
+        fileName: String? = nil,
+        fileType: String? = nil,
+        fileSize: Int64? = nil,
+        imageWidth: Int? = nil,
+        imageHeight: Int? = nil,
+        textPreview: String? = nil
+    ) {
+        self.previewKind = previewKind
+        self.assetPath = assetPath
+        self.filePath = filePath
+        self.fileName = fileName
+        self.fileType = fileType
+        self.fileSize = fileSize
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+        self.textPreview = textPreview
     }
 }
 
@@ -31,13 +91,16 @@ public actor HistoryStore {
     private let maxEntries = 500
     private let previewLength = 200
     private let path: URL
+    private let assetsDirectory: URL
 
     public init() {
-        self.path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/share/mcga/history-swift.json")
+        let directory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/share/mcga")
+        self.path = directory.appendingPathComponent("history-swift.json")
+        self.assetsDirectory = directory.appendingPathComponent("history-assets")
     }
 
-    public func append(original: String, results: [ParseResult]) {
+    public func append(original: String, results: [ParseResult], retentionDays: Int = 0) {
         guard !results.isEmpty else { return }
         var entries = (try? loadAll()) ?? []
         let nextID = (entries.last?.id ?? 0) + 1
@@ -47,19 +110,28 @@ public actor HistoryStore {
         entries.append(HistoryEntry(
             id: nextID,
             timestamp: Date(),
+            contentKind: .text,
+            originalContent: original,
             originalPreview: preview,
-            results: results.map { HistoryResult(parserName: $0.parserName, parsed: $0.parsed, details: $0.details) }
+            results: results.map { HistoryResult(parserName: $0.parserName, parsed: $0.parsed, details: $0.details) },
+            attachment: nil
         ))
-        if entries.count > maxEntries {
-            entries.removeFirst(entries.count - maxEntries)
-        }
-        do {
-            try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder.mcga.encode(entries)
-            try data.write(to: path, options: [.atomic])
-        } catch {
-            // History is best-effort and should never interrupt clipboard parsing.
-        }
+        save(entries, retentionDays: retentionDays)
+    }
+
+    public func append(kind: HistoryContentKind, originalPreview: String, attachment: HistoryAttachment, retentionDays: Int = 0) {
+        var entries = (try? loadAll()) ?? []
+        let nextID = (entries.last?.id ?? 0) + 1
+        entries.append(HistoryEntry(
+            id: nextID,
+            timestamp: Date(),
+            contentKind: kind,
+            originalContent: nil,
+            originalPreview: originalPreview,
+            results: [],
+            attachment: attachment
+        ))
+        save(entries, retentionDays: retentionDays)
     }
 
     public func loadAll() throws -> [HistoryEntry] {
@@ -67,13 +139,61 @@ public actor HistoryStore {
         return try JSONDecoder.mcga.decode([HistoryEntry].self, from: data)
     }
 
-    public func recent(_ count: Int) -> [HistoryEntry] {
-        ((try? loadAll()) ?? []).suffix(count).reversed()
+    public func recent(_ count: Int, retentionDays: Int = 0) -> [HistoryEntry] {
+        allEntries(retentionDays: retentionDays).suffix(count).reversed()
+    }
+
+    public func allRecent(retentionDays: Int = 0) -> [HistoryEntry] {
+        allEntries(retentionDays: retentionDays).reversed()
     }
 
     public func clear() {
         try? FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? Data("[]".utf8).write(to: path, options: [.atomic])
+        try? FileManager.default.removeItem(at: assetsDirectory)
+    }
+
+    private func allEntries(retentionDays: Int) -> [HistoryEntry] {
+        var entries = (try? loadAll()) ?? []
+        let originalCount = entries.count
+        entries = pruned(entries, retentionDays: retentionDays)
+        if entries.count != originalCount {
+            save(entries, retentionDays: 0)
+        }
+        return entries
+    }
+
+    private func save(_ entries: [HistoryEntry], retentionDays: Int) {
+        var entries = pruned(entries, retentionDays: retentionDays)
+        if entries.count > maxEntries {
+            entries.removeFirst(entries.count - maxEntries)
+        }
+        do {
+            try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let data = try JSONEncoder.mcga.encode(entries)
+            try data.write(to: path, options: [.atomic])
+            removeOrphanedAssets(referencedBy: entries)
+        } catch {
+            // History is best-effort and should never interrupt clipboard parsing.
+        }
+    }
+
+    private func pruned(_ entries: [HistoryEntry], retentionDays: Int) -> [HistoryEntry] {
+        guard retentionDays > 0,
+              let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date()) else {
+            return entries
+        }
+        return entries.filter { $0.timestamp >= cutoff }
+    }
+
+    private func removeOrphanedAssets(referencedBy entries: [HistoryEntry]) {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: assetsDirectory, includingPropertiesForKeys: nil) else {
+            return
+        }
+        let referenced = Set(entries.compactMap { $0.attachment?.assetPath }.map { URL(fileURLWithPath: $0).lastPathComponent })
+        for file in files where !referenced.contains(file.lastPathComponent) {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }
 

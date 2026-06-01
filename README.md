@@ -76,6 +76,13 @@ Package `.build/MCGA.app`:
 bash scripts/build-macos-app.sh
 ```
 
+Package the release-style `.build/MCGA.dmg` used by GitHub Releases:
+
+```bash
+brew install create-dmg
+bash scripts/package-macos-dmg.sh
+```
+
 Open the app:
 
 ```bash
