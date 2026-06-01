@@ -180,6 +180,7 @@ struct IPv6Address: CustomStringConvertible {
 private struct IPGeo: Decodable {
     let status: String
     let country: String?
+    let regionName: String?
     let city: String?
     let isp: String?
     let reverse: String?
@@ -187,6 +188,7 @@ private struct IPGeo: Decodable {
     var displayLines: [String] {
         [
             country.flatMap { $0.isEmpty ? nil : "国家：\($0)" },
+            regionName.flatMap { $0.isEmpty ? nil : "地区：\($0)" },
             city.flatMap { $0.isEmpty ? nil : "城市：\($0)" },
             isp.flatMap { $0.isEmpty ? nil : "ISP：\($0)" },
             reverse.flatMap { $0.isEmpty ? nil : "反向 DNS：\($0)" },
@@ -195,9 +197,9 @@ private struct IPGeo: Decodable {
 
     static func lookup(_ ip: String) -> IPGeo? {
         guard let encoded = ip.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "http://ip-api.com/json/\(encoded)?fields=status,message,country,city,isp,reverse,query&lang=zh-CN")
+              let url = URL(string: "http://ip-api.com/json/\(encoded)?fields=status,message,country,regionName,city,isp,reverse,query&lang=zh-CN")
         else { return nil }
-        guard let data = BlockingHTTP.get(url: url, timeout: 3, headers: [:]),
+        guard let data = BlockingHTTP.get(url: url, timeout: 5, headers: [:]),
               let response = try? JSONDecoder().decode(IPGeo.self, from: data),
               response.status == "success"
         else { return nil }

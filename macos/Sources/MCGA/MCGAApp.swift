@@ -1637,7 +1637,6 @@ struct ClipboardPopoverView: View {
     @State private var selectedHistoryID: UInt64?
     @State private var focusedPane: HistoryFocusPane = .original
     @State private var selectedResultIndex = 0
-    @FocusState private var searchFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1669,7 +1668,6 @@ struct ClipboardPopoverView: View {
         .background(HistoryKeyboardCaptureView { handleHistoryKeyAction($0) })
         .onAppear {
             selectFirstHistoryIfNeeded()
-            searchFocused = true
         }
         .onChange(of: model.history) {
             reconcileHistorySelection()
@@ -1731,9 +1729,11 @@ struct ClipboardPopoverView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField(preferences.text(.searchHistory), text: $searchText)
-                .textFieldStyle(.plain)
-                .focused($searchFocused)
+            HistorySearchField(
+                text: $searchText,
+                placeholder: preferences.text(.searchHistory)
+            )
+            .frame(height: 22)
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
@@ -2163,6 +2163,58 @@ struct ClipboardPopoverView: View {
     }
 
     private func focusHistoryKeyboard() {
+    }
+}
+
+struct HistorySearchField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField()
+        field.delegate = context.coordinator
+        field.stringValue = text
+        field.placeholderString = placeholder
+        field.isBordered = false
+        field.isBezeled = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = .systemFont(ofSize: NSFont.systemFontSize)
+        focus(field)
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.text = $text
+        if field.stringValue != text {
+            field.stringValue = text
+        }
+        field.placeholderString = placeholder
+        focus(field)
+    }
+
+    private func focus(_ field: NSTextField) {
+        DispatchQueue.main.async {
+            guard let window = field.window, window.firstResponder !== field.currentEditor() else { return }
+            window.makeFirstResponder(field)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var text: Binding<String>
+
+        init(text: Binding<String>) {
+            self.text = text
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else { return }
+            text.wrappedValue = field.stringValue
+        }
     }
 }
 

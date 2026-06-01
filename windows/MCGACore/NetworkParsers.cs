@@ -242,6 +242,7 @@ namespace MCGA.MCGACore
     {
         public string Status { get; set; } = "";
         public string? Country { get; set; }
+        public string? RegionName { get; set; }
         public string? City { get; set; }
         public string? Isp { get; set; }
         public string? Reverse { get; set; }
@@ -253,6 +254,7 @@ namespace MCGA.MCGACore
             {
                 var list = new List<string>();
                 if (!string.IsNullOrEmpty(Country)) list.Add($"国家：{Country}");
+                if (!string.IsNullOrEmpty(RegionName)) list.Add($"地区：{RegionName}");
                 if (!string.IsNullOrEmpty(City)) list.Add($"城市：{City}");
                 if (!string.IsNullOrEmpty(Isp)) list.Add($"ISP：{Isp}");
                 if (!string.IsNullOrEmpty(Reverse)) list.Add($"反向 DNS：{Reverse}");
@@ -260,13 +262,13 @@ namespace MCGA.MCGACore
             }
         }
 
-        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
         public static IPGeo? Lookup(string ip)
         {
             try
             {
-                string url = $"http://ip-api.com/json/{Uri.EscapeDataString(ip)}?fields=status,message,country,city,isp,reverse,query&lang=zh-CN";
+                string url = $"http://ip-api.com/json/{Uri.EscapeDataString(ip)}?fields=status,message,country,regionName,city,isp,reverse,query&lang=zh-CN";
                 using var response = _httpClient.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (!response.IsSuccessStatusCode) return null;
                 string json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
