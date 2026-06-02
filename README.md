@@ -96,6 +96,17 @@ pkill MCGA
 open .build/MCGA.app
 ```
 
+If direct paste stops working after replacing or rebuilding `MCGA.app`, reset and reopen the Accessibility permission:
+
+```bash
+pkill MCGA || true
+tccutil reset Accessibility com.jimyag.mcga
+open /Applications/MCGA.app
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+```
+
+Enable `MCGA.app` again in System Settings > Privacy & Security > Accessibility.
+
 After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
 
 ### Windows

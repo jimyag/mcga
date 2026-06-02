@@ -26,6 +26,7 @@ jobs:
         run: bash scripts/package-macos-dmg.sh
         env:
           CONFIGURATION: release
+          CODESIGN_IDENTITY: "-"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
