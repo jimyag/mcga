@@ -1653,12 +1653,6 @@ struct ClipboardPopoverView: View {
             Divider()
             VStack(alignment: .leading, spacing: 14) {
                 searchField
-                if model.results.isEmpty {
-                    emptyState
-                } else {
-                    currentContent
-                    resultList
-                }
                 historyView
             }
             .padding(14)
@@ -1748,63 +1742,6 @@ struct ClipboardPopoverView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(model.isPaused ? preferences.text(.paused) : preferences.text(.waiting))
-                .font(.title3.weight(.semibold))
-            Text(preferences.text(.emptyHint))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var currentContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(preferences.text(.currentClipboard))
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-            }
-            Text(model.currentContent)
-                .font(.system(.body, design: .monospaced))
-                .lineLimit(5)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-        }
-    }
-
-    private var resultList: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(model.results) { result in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(result.parserName)
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                    }
-                    Text(result.parsed)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if let details = result.details, details != result.parsed {
-                        Text(details)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .padding(10)
-                .interactiveCard()
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(.separator, lineWidth: 1)
-                )
-            }
-        }
     }
 
     private var historyView: some View {
