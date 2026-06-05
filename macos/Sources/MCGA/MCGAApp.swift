@@ -302,8 +302,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else {
                 return
             }
+            let bundleIdentifier = app.bundleIdentifier
+            let processIdentifier = app.processIdentifier
+            let isTerminated = app.isTerminated
             Task { @MainActor in
-                self?.rememberExternalApp(app)
+                self?.rememberExternalApp(
+                    bundleIdentifier: bundleIdentifier,
+                    processIdentifier: processIdentifier,
+                    isTerminated: isTerminated
+                )
             }
         }
         if let app = NSWorkspace.shared.frontmostApplication {
@@ -330,6 +337,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         lastExternalAppBundleIdentifier = app.bundleIdentifier
         lastExternalAppProcessIdentifier = app.processIdentifier
+        return true
+    }
+
+    @discardableResult
+    private func rememberExternalApp(bundleIdentifier: String?, processIdentifier: pid_t, isTerminated: Bool) -> Bool {
+        guard !isTerminated,
+              bundleIdentifier != Bundle.main.bundleIdentifier else {
+            return false
+        }
+        lastExternalAppBundleIdentifier = bundleIdentifier
+        lastExternalAppProcessIdentifier = processIdentifier
         return true
     }
 
