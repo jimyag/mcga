@@ -2276,14 +2276,27 @@ final class HistoryKeyboardCaptureNSView: NSView {
 
 private extension HistoryEntry {
     func matchesHistoryQuery(_ query: String) -> Bool {
-        let haystack = ([originalContent ?? originalPreview, originalPreview] + results.flatMap { result in
-            [result.parserName, result.parsed, result.details ?? ""]
-        } + [
-            attachment?.fileName ?? "",
-            attachment?.filePath ?? "",
-            attachment?.fileType ?? "",
-            attachment?.textPreview ?? "",
-        ]).joined(separator: "\n")
+        var fields = [originalContent ?? originalPreview, originalPreview]
+        for result in results {
+            fields.append(result.parserName)
+            fields.append(result.parsed)
+            if let details = result.details {
+                fields.append(details)
+            }
+        }
+        if let fileName = attachment?.fileName {
+            fields.append(fileName)
+        }
+        if let filePath = attachment?.filePath {
+            fields.append(filePath)
+        }
+        if let fileType = attachment?.fileType {
+            fields.append(fileType)
+        }
+        if let textPreview = attachment?.textPreview {
+            fields.append(textPreview)
+        }
+        let haystack = fields.joined(separator: "\n")
         return haystack.localizedCaseInsensitiveContains(query)
     }
 
