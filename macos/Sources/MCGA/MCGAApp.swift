@@ -995,6 +995,7 @@ enum TextKey {
     case selectHistoryEntry
     case previewUnavailable
     case noPreviewForBinary
+    case noParsedResults
     case noSearchResults
     case pause
     case resume
@@ -1078,6 +1079,8 @@ enum TextKey {
         case (.en, .previewUnavailable): "Preview unavailable"
         case (.zh, .noPreviewForBinary): "此文件类型不预览。"
         case (.en, .noPreviewForBinary): "Preview is disabled for this file type."
+        case (.zh, .noParsedResults): "无解析结果"
+        case (.en, .noParsedResults): "No parsed results"
         case (.zh, .noSearchResults): "没有匹配的历史"
         case (.en, .noSearchResults): "No matching history"
         case (.zh, .pause): "暂停监听"
@@ -1281,12 +1284,13 @@ final class ClipboardModel: ObservableObject {
             enabledParserNames: preferences.enabledParserNames(from: engine.parserNames)
         )
         previousContent = content
-        guard !parsed.isEmpty else { return }
 
         currentContent = content
         results = parsed
         lastUpdated = Date()
-        onNewResults?(content, parsed)
+        if !parsed.isEmpty {
+            onNewResults?(content, parsed)
+        }
         Task {
             await HistoryStore.shared.append(original: content, results: parsed, retentionDays: preferences.historyRetentionDays)
             refreshHistory()
@@ -1934,7 +1938,7 @@ struct ClipboardPopoverView: View {
             .padding(10)
             .interactiveCard()
         } else {
-            Text(preferences.text(.previewUnavailable))
+            Text(preferences.text(.noParsedResults))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

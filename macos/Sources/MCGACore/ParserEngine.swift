@@ -32,6 +32,7 @@ public struct ParserEngine: Sendable {
             TOMLParser(),
             YAMLParser(),
             HTMLEntityParser(),
+            UnicodeEscapeParser(),
             Base64Parser(),
             DNSParser(),
         ]
@@ -129,6 +130,7 @@ enum ParserCatalog {
         "TOML": ParserInfo(name: "TOML", zhDescription: "识别并轻量格式化 TOML 配置片段。", enDescription: "Recognizes and lightly formats TOML snippets.", examples: [ex("name = \"mcga\"\ncount = 1", "输出 TOML 大小和格式化后的键值。", "Outputs TOML size and formatted key-value lines.")]),
         "YAML": ParserInfo(name: "YAML", zhDescription: "识别 YAML map 或 sequence 并格式化。", enDescription: "Recognizes and formats YAML maps or sequences.", examples: [ex("hello: world\ncount: 1", "输出 YAML 类型和格式化内容。", "Outputs YAML type and formatted content.")]),
         "HTML Entity": ParserInfo(name: "HTML Entity", zhDescription: "解码 HTML entities，包括命名实体、十进制和十六进制数字实体。", enDescription: "Decodes named, decimal, and hexadecimal HTML entities.", examples: [ex("hello &amp; world", "输出 hello & world。", "Outputs hello & world.")]),
+        "Unicode Escape": ParserInfo(name: "Unicode Escape", zhDescription: "解码 \\uXXXX、\\u{XXXX} Unicode 转义为 UTF-8 文本。", enDescription: "Decodes \\uXXXX and \\u{XXXX} Unicode escapes into UTF-8 text.", examples: [ex("\\u4F60\\u597D", "输出 你好。", "Outputs 你好.")]),
         "Base64": ParserInfo(name: "Base64", zhDescription: "识别并解码可打印 UTF-8 Base64 文本。", enDescription: "Recognizes and decodes printable UTF-8 Base64 text.", examples: [ex("aGVsbG8gd29ybGQ=", "输出 hello world。", "Outputs hello world.")]),
         "DNS": ParserInfo(name: "DNS", zhDescription: "识别域名并通过 DoH 查询 A、AAAA、CNAME 记录。", enDescription: "Recognizes domains and queries A, AAAA, and CNAME records via DoH.", examples: [ex("example.com", "输出 A/AAAA/CNAME 查询结果。", "Outputs A/AAAA/CNAME lookup results.")]),
     ]

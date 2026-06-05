@@ -21,7 +21,7 @@ let names = engine.parserNames
 for name in [
     "CIDR", "UUID", "ObjectID", "Hash", "IPv6", "IP", "Timestamp",
     "HTTP Status", "Number Base", "Cron", "URL", "JSON", "JSON5", "XML", "TOML",
-    "YAML", "HTML Entity", "Base64", "DNS",
+    "YAML", "HTML Entity", "Unicode Escape", "Base64", "DNS",
 ] {
     expect(names.contains(name), "missing parser \(name)")
 }
@@ -43,6 +43,7 @@ expectParser("<root><item>1</item></root>", "XML", "XML")
 expectParser("name = \"mcga\"\ncount = 1", "TOML", "TOML")
 expectParser("hello: world\ncount: 1", "YAML", "YAML")
 expectParser("hello &amp; world", "HTML Entity", "HTML Entity")
+expectParser(#"\u4F60\u597D"#, "Unicode Escape", "Unicode Escape")
 expectParser("aGVsbG8gd29ybGQ=", "Base64", "Base64")
 expectParser("example.com", "DNS", "DNS")
 expect(engine.parse("404", enabledParserNames: []) == nil, "disabled all parsers")
@@ -58,5 +59,27 @@ expect(encoded?.parsed == "aGVsbG8gd29ybGQ=", "b64 output")
 let decoded = engine.parse("db64", previousContent: "aGVsbG8gd29ybGQ=")
 expect(decoded?.parserName == "Base64 Decode", "db64 parser")
 expect(decoded?.parsed == "hello world", "db64 output")
+
+let unicodeEscape = engine.parseAll(#"hello \u4F60\u597D \u{1F600} \uD83D\uDE00"#)
+    .first { $0.parserName == "Unicode Escape" }
+expect(unicodeEscape?.parsed == "hello 你好 😀 😀", "unicode escape output")
+
+let historyDirectory = FileManager.default.temporaryDirectory
+    .appendingPathComponent("mcga-smoke-\(UUID().uuidString)")
+let historyStore = HistoryStore(
+    path: historyDirectory.appendingPathComponent("history.json"),
+    assetsDirectory: historyDirectory.appendingPathComponent("assets")
+)
+await historyStore.append(original: "plain clipboard text", results: [])
+let historyEntries = await historyStore.allRecent()
+expect(historyEntries.count == 1, "plain text history entry")
+expect(historyEntries.first?.originalContent == "plain clipboard text", "plain text original content")
+expect(historyEntries.first?.results.isEmpty == true, "plain text without parsed results")
+try? FileManager.default.removeItem(at: historyDirectory)
+
+if names.contains("QiniuLASRegion") {
+    let regionResults = engine.parseAll("新加坡").filter { $0.parserName == "QiniuLASRegion" }
+    expect(regionResults.first?.parsed == "ap-southeast-1", "QiniuLASRegion custom parser")
+}
 
 print("MCGASmokeTests passed")

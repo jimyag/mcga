@@ -33,6 +33,7 @@ The parser engine covers:
 - TOML formatting
 - YAML
 - HTML entity decoding
+- Unicode escape decoding
 - Base64 text decode
 - DNS over HTTPS lookup for A, AAAA, and CNAME
 

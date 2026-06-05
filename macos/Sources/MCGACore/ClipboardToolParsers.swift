@@ -83,6 +83,119 @@ struct HTMLEntityParser: ContentParser {
     }
 }
 
+struct UnicodeEscapeParser: ContentParser {
+    let name = "Unicode Escape"
+    private let pattern = ParserUtilities.regex(#"\\u(?:\{[0-9a-fA-F]{1,6}\}|[0-9a-fA-F]{4})"#)
+
+    func parse(_ content: String, previousContent: String) -> [ParseResult] {
+        guard content.count <= 64 * 1024,
+              pattern.firstMatch(in: content, range: NSRange(content.startIndex..<content.endIndex, in: content)) != nil else {
+            return []
+        }
+        let decoded = decode(content)
+        guard decoded != content else { return [] }
+        return [ParseResult(
+            parserName: name,
+            original: content,
+            parsed: decoded,
+            details: "原始长度：\(content.count)\n解码长度：\(decoded.count)"
+        )]
+    }
+
+    private func decode(_ value: String) -> String {
+        var output = ""
+        var index = value.startIndex
+        while index < value.endIndex {
+            guard value[index] == "\\",
+                  let next = value.index(index, offsetBy: 1, limitedBy: value.index(before: value.endIndex)),
+                  value[next] == "u" else {
+                output.append(value[index])
+                index = value.index(after: index)
+                continue
+            }
+
+            if let parsed = parseBracedScalar(in: value, slashIndex: index) {
+                output.append(parsed.character)
+                index = parsed.nextIndex
+                continue
+            }
+
+            if let parsed = parseFourDigitScalar(in: value, slashIndex: index) {
+                output.append(parsed.character)
+                index = parsed.nextIndex
+                continue
+            }
+
+            output.append(value[index])
+            index = value.index(after: index)
+        }
+        return output
+    }
+
+    private func parseBracedScalar(in value: String, slashIndex: String.Index) -> (character: Character, nextIndex: String.Index)? {
+        let braceIndex = value.index(slashIndex, offsetBy: 2, limitedBy: value.endIndex)
+        guard let braceIndex, braceIndex < value.endIndex, value[braceIndex] == "{" else { return nil }
+        guard let closeIndex = value[braceIndex...].firstIndex(of: "}") else { return nil }
+        let bodyStart = value.index(after: braceIndex)
+        guard bodyStart < closeIndex else { return nil }
+        let body = value[bodyStart..<closeIndex]
+        guard body.count <= 6,
+              body.allSatisfy(\.isHexDigit),
+              let codePoint = UInt32(body, radix: 16),
+              let scalar = UnicodeScalar(codePoint) else {
+            return nil
+        }
+        return (Character(scalar), value.index(after: closeIndex))
+    }
+
+    private func parseFourDigitScalar(in value: String, slashIndex: String.Index) -> (character: Character, nextIndex: String.Index)? {
+        guard let firstDigit = value.index(slashIndex, offsetBy: 2, limitedBy: value.endIndex),
+              let end = value.index(firstDigit, offsetBy: 4, limitedBy: value.endIndex) else {
+            return nil
+        }
+        let digits = value[firstDigit..<end]
+        guard digits.count == 4, digits.allSatisfy(\.isHexDigit), let firstCodeUnit = UInt16(digits, radix: 16) else {
+            return nil
+        }
+
+        if (0xD800...0xDBFF).contains(firstCodeUnit),
+           let low = parseLowSurrogate(in: value, after: end),
+           let scalar = scalarFromSurrogates(high: firstCodeUnit, low: low.codeUnit) {
+            return (Character(scalar), low.nextIndex)
+        }
+
+        guard !(0xDC00...0xDFFF).contains(firstCodeUnit),
+              let scalar = UnicodeScalar(UInt32(firstCodeUnit)) else {
+            return nil
+        }
+        return (Character(scalar), end)
+    }
+
+    private func parseLowSurrogate(in value: String, after index: String.Index) -> (codeUnit: UInt16, nextIndex: String.Index)? {
+        guard index < value.endIndex,
+              value[index] == "\\",
+              let uIndex = value.index(index, offsetBy: 1, limitedBy: value.index(before: value.endIndex)),
+              value[uIndex] == "u",
+              let firstDigit = value.index(index, offsetBy: 2, limitedBy: value.endIndex),
+              let end = value.index(firstDigit, offsetBy: 4, limitedBy: value.endIndex) else {
+            return nil
+        }
+        let digits = value[firstDigit..<end]
+        guard digits.count == 4,
+              digits.allSatisfy(\.isHexDigit),
+              let codeUnit = UInt16(digits, radix: 16),
+              (0xDC00...0xDFFF).contains(codeUnit) else {
+            return nil
+        }
+        return (codeUnit, end)
+    }
+
+    private func scalarFromSurrogates(high: UInt16, low: UInt16) -> UnicodeScalar? {
+        let value = 0x10000 + ((UInt32(high) - 0xD800) << 10) + (UInt32(low) - 0xDC00)
+        return UnicodeScalar(value)
+    }
+}
+
 struct HTTPStatusParser: ContentParser {
     let name = "HTTP Status"
 

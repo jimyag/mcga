@@ -82,36 +82,47 @@ struct CustomCommandParser: ContentParser {
         process.arguments = args
 
         let stdin = Pipe()
-        let stdout = Pipe()
         process.standardInput = stdin
-        process.standardOutput = stdout
-        process.standardError = Pipe()
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcga-custom-parser-\(UUID().uuidString).out")
+        FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        guard let outputHandle = try? FileHandle(forWritingTo: outputURL) else {
+            return nil
+        }
+        defer {
+            try? outputHandle.close()
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        process.standardOutput = outputHandle
+        process.standardError = FileHandle(forWritingAtPath: "/dev/null")
 
-        let group = DispatchGroup()
-        group.enter()
-        process.terminationHandler = { _ in group.leave() }
+        let terminationGroup = DispatchGroup()
+        terminationGroup.enter()
+        process.terminationHandler = { _ in terminationGroup.leave() }
 
         do {
             try process.run()
             stdin.fileHandleForWriting.write(Data(input.utf8))
             try? stdin.fileHandleForWriting.close()
+
+            let timeout = DispatchTime.now() + .milliseconds(clampedTimeoutMs)
+            if terminationGroup.wait(timeout: timeout) == .timedOut {
+                process.terminate()
+                _ = terminationGroup.wait(timeout: .now() + .milliseconds(200))
+                return nil
+            }
+
+            guard process.terminationStatus == 0 else { return nil }
+            try? outputHandle.synchronize()
+            let data = (try? Data(contentsOf: outputURL)) ?? Data()
+            return String(data: data, encoding: .utf8)
         } catch {
             return nil
         }
-
-        let timeout = DispatchTime.now() + .milliseconds(clampedTimeoutMs)
-        if group.wait(timeout: timeout) == .timedOut {
-            process.terminate()
-            return nil
-        }
-
-        guard process.terminationStatus == 0 else { return nil }
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8)
     }
 
     private var clampedTimeoutMs: Int {
-        min(max(config.timeoutMs ?? 500, 50), 3_000)
+        min(max(config.timeoutMs ?? 500, 50), 10_000)
     }
 }
 

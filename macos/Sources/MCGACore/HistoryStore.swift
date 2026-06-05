@@ -96,12 +96,18 @@ public actor HistoryStore {
     public init() {
         let directory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local/share/mcga")
-        self.path = directory.appendingPathComponent("history-swift.json")
-        self.assetsDirectory = directory.appendingPathComponent("history-assets")
+        self.init(
+            path: directory.appendingPathComponent("history-swift.json"),
+            assetsDirectory: directory.appendingPathComponent("history-assets")
+        )
+    }
+
+    public init(path: URL, assetsDirectory: URL) {
+        self.path = path
+        self.assetsDirectory = assetsDirectory
     }
 
     public func append(original: String, results: [ParseResult], retentionDays: Int = 0) {
-        guard !results.isEmpty else { return }
         var entries = (try? loadAll()) ?? []
         let nextID = (entries.last?.id ?? 0) + 1
         let preview = original.count > previewLength

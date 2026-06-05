@@ -10,7 +10,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
 - Current result and history in the menu bar popover.
 - Copy parsed result content without copying parser titles.
 - Parser settings window with Chinese / English UI, light / dark theme, and per-parser toggles.
-- Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Base64, DNS, and keyword generators.
+- Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.
 
 ## Screenshots
@@ -107,7 +107,7 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibil
 
 Enable `MCGA.app` again in System Settings > Privacy & Security > Accessibility.
 
-After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
+After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, Unicode escapes, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
 
 ### Windows
 

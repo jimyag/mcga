@@ -40,7 +40,7 @@ scripts/build-macos-app.sh       打包 .build/MCGA.app
 
 `Sources/MCGACore/ParserEngine.swift` 中解析器顺序决定 `parse()` 的优先级，越具体的解析器越靠前。
 
-当前 Swift 版覆盖：关键词生成器、自定义 command 解析器、CIDR、UUID、ObjectID、Hash、IPv6、公网 IPv4、Timestamp、HTTP Status、Number Base、Cron、URL、JSON、JSON5、XML、TOML、YAML、HTML Entity、Base64、DNS。
+当前 Swift 版覆盖：关键词生成器、自定义 command 解析器、CIDR、UUID、ObjectID、Hash、IPv6、公网 IPv4、Timestamp、HTTP Status、Number Base、Cron、URL、JSON、JSON5、XML、TOML、YAML、HTML Entity、Unicode Escape、Base64、DNS。
 
 ## 自定义 Command 解析器
 
