@@ -81,6 +81,10 @@ await historyStore.promote(id: 1)
 let promotedEntries = await historyStore.allRecent()
 expect(promotedEntries.first?.id == 1, "promoted history entry first")
 expect(promotedEntries.first?.originalContent == "plain clipboard text", "promoted history content")
+await historyStore.append(original: "third clipboard text", results: [])
+let reorderedEntries = await historyStore.allRecent()
+expect(reorderedEntries.first?.originalContent == "third clipboard text", "new entry after promoted history")
+expect(Set(reorderedEntries.map(\.id)).count == reorderedEntries.count, "history ids stay unique after promotion")
 try? FileManager.default.removeItem(at: historyDirectory)
 
 if names.contains("QiniuLASRegion") {

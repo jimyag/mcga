@@ -9,6 +9,8 @@
 *.swp
 *.swo
 
+.antigravitycli/
+
 # OS
 .DS_Store
 Thumbs.db

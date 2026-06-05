@@ -109,7 +109,8 @@ public actor HistoryStore {
 
     public func append(original: String, results: [ParseResult], retentionDays: Int = 0) {
         var entries = (try? loadAll()) ?? []
-        let nextID = (entries.last?.id ?? 0) + 1
+        _ = repairDuplicateIDs(&entries)
+        let nextID = nextHistoryID(after: entries)
         let preview = original.count > previewLength
             ? String(original.prefix(previewLength)) + "..."
             : original
@@ -127,7 +128,8 @@ public actor HistoryStore {
 
     public func append(kind: HistoryContentKind, originalPreview: String, attachment: HistoryAttachment, retentionDays: Int = 0) {
         var entries = (try? loadAll()) ?? []
-        let nextID = (entries.last?.id ?? 0) + 1
+        _ = repairDuplicateIDs(&entries)
+        let nextID = nextHistoryID(after: entries)
         entries.append(HistoryEntry(
             id: nextID,
             timestamp: Date(),
@@ -142,6 +144,7 @@ public actor HistoryStore {
 
     public func promote(id: UInt64, retentionDays: Int = 0) {
         var entries = (try? loadAll()) ?? []
+        let repairedDuplicates = repairDuplicateIDs(&entries)
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         let entry = entries.remove(at: index)
         entries.append(HistoryEntry(
@@ -153,7 +156,7 @@ public actor HistoryStore {
             results: entry.results,
             attachment: entry.attachment
         ))
-        save(entries, retentionDays: retentionDays)
+        save(entries, retentionDays: repairedDuplicates ? 0 : retentionDays)
     }
 
     public func loadAll() throws -> [HistoryEntry] {
@@ -178,11 +181,41 @@ public actor HistoryStore {
     private func allEntries(retentionDays: Int) -> [HistoryEntry] {
         var entries = (try? loadAll()) ?? []
         let originalCount = entries.count
+        let repairedDuplicates = repairDuplicateIDs(&entries)
         entries = pruned(entries, retentionDays: retentionDays)
-        if entries.count != originalCount {
+        if repairedDuplicates || entries.count != originalCount {
             save(entries, retentionDays: 0)
         }
         return entries
+    }
+
+    private func nextHistoryID(after entries: [HistoryEntry]) -> UInt64 {
+        (entries.map(\.id).max() ?? 0) + 1
+    }
+
+    private func repairDuplicateIDs(_ entries: inout [HistoryEntry]) -> Bool {
+        var seen = Set<UInt64>()
+        var nextID = nextHistoryID(after: entries)
+        var changed = false
+        for index in entries.indices {
+            let entry = entries[index]
+            if seen.insert(entry.id).inserted {
+                continue
+            }
+            entries[index] = HistoryEntry(
+                id: nextID,
+                timestamp: entry.timestamp,
+                contentKind: entry.contentKind,
+                originalContent: entry.originalContent,
+                originalPreview: entry.originalPreview,
+                results: entry.results,
+                attachment: entry.attachment
+            )
+            seen.insert(nextID)
+            nextID += 1
+            changed = true
+        }
+        return changed
     }
 
     private func save(_ entries: [HistoryEntry], retentionDays: Int) {
