@@ -8,6 +8,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
 - Windows notification area app with auto popup, settings, single-instance replacement, and optional start at login.
 - Clipboard auto-detection with hover-preserved popup.
 - Current result and history in the menu bar popover.
+- Clipboard history is ordered by activity: new clipboard entries, copied history items, and pasted history items move to the top.
 - Copy parsed result content without copying parser titles.
 - Parser settings window with Chinese / English UI, light / dark theme, and per-parser toggles.
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.

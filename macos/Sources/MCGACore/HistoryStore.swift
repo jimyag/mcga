@@ -140,6 +140,22 @@ public actor HistoryStore {
         save(entries, retentionDays: retentionDays)
     }
 
+    public func promote(id: UInt64, retentionDays: Int = 0) {
+        var entries = (try? loadAll()) ?? []
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let entry = entries.remove(at: index)
+        entries.append(HistoryEntry(
+            id: entry.id,
+            timestamp: Date(),
+            contentKind: entry.contentKind,
+            originalContent: entry.originalContent,
+            originalPreview: entry.originalPreview,
+            results: entry.results,
+            attachment: entry.attachment
+        ))
+        save(entries, retentionDays: retentionDays)
+    }
+
     public func loadAll() throws -> [HistoryEntry] {
         let data = try Data(contentsOf: path)
         return try JSONDecoder.mcga.decode([HistoryEntry].self, from: data)

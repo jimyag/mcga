@@ -44,6 +44,7 @@ The menu bar popover also supports persistent preferences through `UserDefaults`
 - per-parser enable / disable switches
 - parser descriptions and examples in an independent settings window
 - non-blocking copied feedback after copy actions
+- activity-ordered clipboard history; copy or paste actions on an existing history entry promote it to the top
 
 ## Verification
 

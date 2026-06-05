@@ -1226,6 +1226,13 @@ final class ClipboardModel: ObservableObject {
         }
     }
 
+    func promoteHistoryEntry(id: UInt64) {
+        Task {
+            await HistoryStore.shared.promote(id: id, retentionDays: preferences.historyRetentionDays)
+            refreshHistory()
+        }
+    }
+
     func copy(_ value: String) {
         copy(.text(value))
     }
@@ -2052,11 +2059,13 @@ struct ClipboardPopoverView: View {
             focusedPane = .parsed
             clampSelectedResultIndex()
         case .copy:
-            if let payload = focusedContentPayload {
+            if let entry = selectedHistoryEntry, let payload = focusedContentPayload {
+                model.promoteHistoryEntry(id: entry.id)
                 model.copy(payload)
             }
         case .paste:
-            if let payload = focusedContentPayload {
+            if let entry = selectedHistoryEntry, let payload = focusedContentPayload {
+                model.promoteHistoryEntry(id: entry.id)
                 paste(payload)
             }
         }

@@ -75,6 +75,12 @@ let historyEntries = await historyStore.allRecent()
 expect(historyEntries.count == 1, "plain text history entry")
 expect(historyEntries.first?.originalContent == "plain clipboard text", "plain text original content")
 expect(historyEntries.first?.results.isEmpty == true, "plain text without parsed results")
+
+await historyStore.append(original: "second clipboard text", results: [])
+await historyStore.promote(id: 1)
+let promotedEntries = await historyStore.allRecent()
+expect(promotedEntries.first?.id == 1, "promoted history entry first")
+expect(promotedEntries.first?.originalContent == "plain clipboard text", "promoted history content")
 try? FileManager.default.removeItem(at: historyDirectory)
 
 if names.contains("QiniuLASRegion") {
