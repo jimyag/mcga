@@ -228,12 +228,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let image = AppSymbols.primary
         image?.isTemplate = true
         item.button?.image = image
-        item.button?.imagePosition = .imageLeading
-        item.button?.title = " MCGA"
+        item.button?.imagePosition = .imageOnly
         item.button?.action = #selector(togglePopover)
         item.button?.target = self
         statusItem = item
