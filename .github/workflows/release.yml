@@ -22,11 +22,28 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
 
+      # A stable identity keeps the Accessibility grant across upgrades; ad-hoc signing does not.
+      - name: Import signing certificate
+        env:
+          MACOS_SIGNING_CERT_P12: ${{ secrets.MACOS_SIGNING_CERT_P12 }}
+          MACOS_SIGNING_CERT_PASSWORD: ${{ secrets.MACOS_SIGNING_CERT_PASSWORD }}
+        run: |
+          : "${MACOS_SIGNING_CERT_P12:?MACOS_SIGNING_CERT_P12 secret is not set, see README Code signing}"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$MACOS_SIGNING_CERT_P12" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/signing.p12" -P "$MACOS_SIGNING_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN"
+
       - name: Build and Create DMG
         run: bash scripts/package-macos-dmg.sh
         env:
           CONFIGURATION: release
-          CODESIGN_IDENTITY: "-"
+          CODESIGN_IDENTITY: MCGA Self Signed
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

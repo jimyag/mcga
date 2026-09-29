@@ -24,7 +24,7 @@ source ~/.zshrc && pkill MCGA
 
 ## 重新安装
 
-修改后重新安装 MCGA 时，必须完整执行构建、替换 App、重置辅助功能权限和重启流程，不要只打开 `.build/MCGA.app`：
+修改后重新安装 MCGA 时，必须完整执行构建、替换 App 和重启流程，不要只打开 `.build/MCGA.app`：
 
 ```bash
 source ~/.zshrc
@@ -36,12 +36,17 @@ if [[ -d /Applications/MCGA.app ]]; then
 fi
 ditto .build/MCGA.app /Applications/MCGA.app
 codesign --verify --strict --verbose=2 /Applications/MCGA.app
-tccutil reset Accessibility com.jimyag.mcga
 open /Applications/MCGA.app
+```
+
+`build-macos-app.sh` 使用钥匙串中的 `MCGA Self Signed` 证书签名，签名身份不变时辅助功能授权会保留，不要再重置。只有构建输出 ad-hoc 签名警告，或签名身份刚发生变化（例如首次从 ad-hoc 切换到该证书）时，才执行一次：
+
+```bash
+tccutil reset Accessibility com.jimyag.mcga
 open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
 ```
 
-重置后需要在“系统设置 > 隐私与安全性 > 辅助功能”中重新启用 `MCGA.app`。
+然后在“系统设置 > 隐私与安全性 > 辅助功能”中重新启用 `MCGA.app`。
 
 ## 架构概览
 

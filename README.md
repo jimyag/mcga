@@ -44,6 +44,8 @@ sudo xattr -rd com.apple.quarantine /Applications/MCGA.app
 
 Enter your password when prompted. You can then open MCGA normally from Launchpad or your Applications folder.
 
+Releases after v0.1.1 are signed with a stable self-signed certificate, so the Accessibility permission carries over when you upgrade. Upgrading from v0.1.1 or earlier needs one reset, see [Code signing](#code-signing).
+
 ## Build
 
 ### macOS
@@ -97,7 +99,18 @@ pkill MCGA
 open .build/MCGA.app
 ```
 
-If direct paste stops working after replacing or rebuilding `MCGA.app`, reset and reopen the Accessibility permission:
+After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, Unicode escapes, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
+
+#### Code signing
+
+macOS ties the Accessibility permission to the app's signing identity. An ad-hoc signature is a new identity on every build, so every install has to be granted again. Local builds and releases therefore share one self-signed certificate:
+
+- `scripts/build-macos-app.sh` and `scripts/package-macos-dmg.sh` sign with the `MCGA Self Signed` code signing certificate when it is in the keychain, and fall back to ad-hoc signing with a warning otherwise. `CODESIGN_IDENTITY` overrides the identity.
+- The release workflow imports the same certificate from the `MACOS_SIGNING_CERT_P12` (base64-encoded `.p12`) and `MACOS_SIGNING_CERT_PASSWORD` repository secrets, and fails when they are missing.
+
+Replacing the certificate changes the identity again, so keep the `.p12` backed up instead of creating a new one.
+
+If direct paste stops working after the signing identity changes, for example the first install after switching from ad-hoc signing, reset and reopen the Accessibility permission:
 
 ```bash
 pkill MCGA || true
@@ -107,8 +120,6 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibil
 ```
 
 Enable `MCGA.app` again in System Settings > Privacy & Security > Accessibility.
-
-After launch, click the `MCGA` menu bar item to view current results and history. Copy a supported value such as JSON, UUID, IP, timestamp, CIDR, HTTP status code, URL, HTML entities, Unicode escapes, XML, TOML, Base64, Cron, YAML, or a domain to trigger parsing.
 
 ### Windows
 

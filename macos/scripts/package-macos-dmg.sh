@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DMG_PATH="$ROOT/.build/MCGA.dmg"
 CONFIGURATION="${CONFIGURATION:-release}"
-CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 SIGN_DMG="${SIGN_DMG:-0}"
 
 if ! command -v create-dmg >/dev/null 2>&1; then
@@ -28,7 +28,7 @@ create-dmg \
   ".build/MCGA.app"
 
 if [[ "$SIGN_DMG" == "1" ]]; then
-  if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
+  if [[ "$CODESIGN_IDENTITY" != "Developer ID Application:"* ]]; then
     echo "CODESIGN_IDENTITY must be a Developer ID identity when SIGN_DMG=1" >&2
     exit 1
   fi
