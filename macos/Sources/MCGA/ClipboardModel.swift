@@ -17,6 +17,7 @@ final class ClipboardModel: ObservableObject {
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var previousContent = ""
+    private var parseGeneration: UInt64 = 0
     private let filePreviewLimit = 256 * 1024
     private let imagePreviewMaxSide: CGFloat = 900
 
@@ -108,6 +109,7 @@ final class ClipboardModel: ObservableObject {
 
         let fileURLs = pasteboardFileURLs(pasteboard)
         if !fileURLs.isEmpty {
+            parseGeneration &+= 1
             for fileURL in fileURLs {
                 appendFileHistory(fileURL)
             }
@@ -115,27 +117,51 @@ final class ClipboardModel: ObservableObject {
         }
 
         if let image = NSImage(pasteboard: pasteboard) {
+            parseGeneration &+= 1
             appendImageHistory(image)
             return
         }
 
         guard let content = pasteboard.string(forType: .string), content != currentContent else { return }
 
-        let parsed = engine.parseAll(
-            content,
-            previousContent: previousContent,
-            enabledParserNames: preferences.enabledParserNames(from: engine.parserNames)
-        )
+        parseGeneration &+= 1
+        let generation = parseGeneration
+        let previousContentSnapshot = previousContent
         previousContent = content
-
         currentContent = content
-        results = parsed
+        results = []
         lastUpdated = Date()
-        if !parsed.isEmpty {
-            onNewResults?(content, parsed)
+
+        guard ParserEngine.canParse(content) else {
+            appendTextHistory(content, results: [])
+            return
         }
+
+        let engine = engine
+        let enabledParserNames = preferences.enabledParserNames(from: engine.parserNames)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let parsed = engine.parseAll(
+                content,
+                previousContent: previousContentSnapshot,
+                enabledParserNames: enabledParserNames
+            )
+            await self?.finishParsing(content, results: parsed, generation: generation)
+        }
+    }
+
+    private func finishParsing(_ content: String, results parsed: [ParseResult], generation: UInt64) {
+        if generation == parseGeneration {
+            results = parsed
+            if !parsed.isEmpty {
+                onNewResults?(content, parsed)
+            }
+        }
+        appendTextHistory(content, results: parsed)
+    }
+
+    private func appendTextHistory(_ content: String, results: [ParseResult]) {
         Task {
-            await HistoryStore.shared.append(original: content, results: parsed, retentionDays: preferences.historyRetentionDays)
+            await HistoryStore.shared.append(original: content, results: results, retentionDays: preferences.historyRetentionDays)
             refreshHistory()
         }
     }

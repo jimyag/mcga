@@ -5,6 +5,7 @@ public struct HistoryEntry: Identifiable, Codable, Equatable, Sendable {
     public let timestamp: Date
     public let contentKind: HistoryContentKind?
     public let originalContent: String?
+    public let originalContentTruncated: Bool?
     public let originalPreview: String
     public let results: [HistoryResult]
     public let attachment: HistoryAttachment?
@@ -14,6 +15,7 @@ public struct HistoryEntry: Identifiable, Codable, Equatable, Sendable {
         timestamp: Date,
         contentKind: HistoryContentKind? = .text,
         originalContent: String? = nil,
+        originalContentTruncated: Bool = false,
         originalPreview: String,
         results: [HistoryResult],
         attachment: HistoryAttachment? = nil
@@ -22,6 +24,7 @@ public struct HistoryEntry: Identifiable, Codable, Equatable, Sendable {
         self.timestamp = timestamp
         self.contentKind = contentKind
         self.originalContent = originalContent
+        self.originalContentTruncated = originalContentTruncated
         self.originalPreview = originalPreview
         self.results = results
         self.attachment = attachment
@@ -90,6 +93,7 @@ public actor HistoryStore {
     public static let shared = HistoryStore()
     private let maxEntries = 500
     private let previewLength = 200
+    private let maximumOriginalBytes = ParserEngine.maximumInputBytes
     private let path: URL
     private let assetsDirectory: URL
 
@@ -111,6 +115,7 @@ public actor HistoryStore {
         var entries = (try? loadAll()) ?? []
         _ = repairDuplicateIDs(&entries)
         let nextID = nextHistoryID(after: entries)
+        let originalContentTruncated = original.utf8.count > maximumOriginalBytes
         let preview = original.count > previewLength
             ? String(original.prefix(previewLength)) + "..."
             : original
@@ -118,7 +123,8 @@ public actor HistoryStore {
             id: nextID,
             timestamp: Date(),
             contentKind: .text,
-            originalContent: original,
+            originalContent: originalContentTruncated ? nil : original,
+            originalContentTruncated: originalContentTruncated,
             originalPreview: preview,
             results: results.map { HistoryResult(parserName: $0.parserName, parsed: $0.parsed, details: $0.details) },
             attachment: nil
@@ -152,6 +158,7 @@ public actor HistoryStore {
             timestamp: Date(),
             contentKind: entry.contentKind,
             originalContent: entry.originalContent,
+            originalContentTruncated: entry.originalContentTruncated == true,
             originalPreview: entry.originalPreview,
             results: entry.results,
             attachment: entry.attachment
@@ -207,6 +214,7 @@ public actor HistoryStore {
                 timestamp: entry.timestamp,
                 contentKind: entry.contentKind,
                 originalContent: entry.originalContent,
+                originalContentTruncated: entry.originalContentTruncated == true,
                 originalPreview: entry.originalPreview,
                 results: entry.results,
                 attachment: entry.attachment

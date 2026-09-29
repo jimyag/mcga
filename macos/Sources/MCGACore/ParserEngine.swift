@@ -1,6 +1,8 @@
 import Foundation
 
 public struct ParserEngine: Sendable {
+    public static let maximumInputBytes = 256 * 1024
+
     private let parsers: [any ContentParser]
 
     public init() {
@@ -51,8 +53,10 @@ public struct ParserEngine: Sendable {
         previousContent: String = "",
         enabledParserNames: Set<String>? = nil
     ) -> ParseResult? {
+        guard Self.canParse(content) else { return nil }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        let previousContent = Self.canParse(previousContent) ? previousContent : ""
         for parser in parsers {
             if let enabledParserNames, !enabledParserNames.contains(parser.name) {
                 continue
@@ -69,14 +73,20 @@ public struct ParserEngine: Sendable {
         previousContent: String = "",
         enabledParserNames: Set<String>? = nil
     ) -> [ParseResult] {
+        guard Self.canParse(content) else { return [] }
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
+        let previousContent = Self.canParse(previousContent) ? previousContent : ""
         return parsers.flatMap { parser in
             if let enabledParserNames, !enabledParserNames.contains(parser.name) {
                 return [ParseResult]()
             }
             return parser.parse(trimmed, previousContent: previousContent)
         }
+    }
+
+    public static func canParse(_ content: String) -> Bool {
+        content.utf8.count <= maximumInputBytes
     }
 }
 

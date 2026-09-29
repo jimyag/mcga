@@ -517,6 +517,7 @@ enum TextKey {
     case searchHistory
     case historyOriginal
     case historyParsed
+    case historyOriginalTruncated
     case selectHistoryEntry
     case previewUnavailable
     case noPreviewForBinary
@@ -604,6 +605,8 @@ enum TextKey {
         case (.en, .historyOriginal): "Original"
         case (.zh, .historyParsed): "解析结果"
         case (.en, .historyParsed): "Parsed"
+        case (.zh, .historyOriginalTruncated): "内容过大，历史仅保留预览"
+        case (.en, .historyOriginalTruncated): "Content too large; history keeps only a preview"
         case (.zh, .selectHistoryEntry): "选择左侧历史后查看解析结果。"
         case (.en, .selectHistoryEntry): "Select a history item on the left to view parsed results."
         case (.zh, .previewUnavailable): "预览不可用"

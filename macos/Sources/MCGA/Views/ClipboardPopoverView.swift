@@ -224,6 +224,11 @@ struct ClipboardPopoverView: View {
                     .lineLimit(4)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if entry.originalContentTruncated == true {
+                    Label(preferences.text(.historyOriginalTruncated), systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
                 Text(entry.summaryText)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
