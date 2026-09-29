@@ -13,6 +13,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
 - Parser settings window with Chinese / English UI, light / dark theme, and per-parser toggles.
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.
+- Automatic updates on macOS through Sparkle.
 
 ## Screenshots
 
@@ -45,6 +46,8 @@ sudo xattr -rd com.apple.quarantine /Applications/MCGA.app
 Enter your password when prompted. You can then open MCGA normally from Launchpad or your Applications folder.
 
 Releases after v0.1.1 are signed with a stable self-signed certificate, so the Accessibility permission carries over when you upgrade. Upgrading from v0.1.1 or earlier needs one reset, see [Code signing](#code-signing).
+
+From v0.1.5 on, MCGA updates itself: it checks the latest release once a day, and `Check for Updates…` in the menu bar item's right-click menu or in Settings checks right away. Versions before v0.1.5 need one manual install of a newer release first.
 
 ## Build
 
@@ -122,6 +125,15 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibil
 ```
 
 Enable `MCGA.app` again in System Settings > Privacy & Security > Accessibility.
+
+#### Auto-update
+
+The app embeds [Sparkle](https://sparkle-project.org). It reads `appcast.xml` from the latest GitHub release, and the release workflow signs `MCGA.zip` with Sparkle's EdDSA key and writes that appcast for every tag. Two pieces must match before a release:
+
+- `SUPublicEDKey` in `Packaging/Info.plist`: the public key that `generate_keys` (in `.build/artifacts/sparkle/Sparkle/bin` after `swift package resolve`) prints when it creates the key in the login keychain.
+- The `SPARKLE_PRIVATE_KEY` repository secret: the private key exported with `generate_keys -x`.
+
+The release workflow fails when either is missing. Installed apps only accept updates signed by that key, so keep the exported private key backed up; replacing it means every user reinstalls manually once.
 
 ### Windows
 

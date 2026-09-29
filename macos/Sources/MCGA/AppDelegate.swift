@@ -1,11 +1,17 @@
 import AppKit
 import Carbon
+import Sparkle
 import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = AppPreferences()
     private lazy var model = ClipboardModel(preferences: preferences)
+    private lazy var updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: self
+    )
     private let overlayPresenter = FloatingOverlayPresenter()
     private let historyHotKey = GlobalHotKeyController()
     private var statusItem: NSStatusItem?
@@ -19,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        _ = updaterController
         setupStatusItem()
         preferences.onHistoryShortcutChanged = { [weak self] enabled, shortcut in
             self?.configureHistoryShortcut(enabled: enabled, shortcut: shortcut)
@@ -71,6 +78,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         settingsItem.target = self
         menu.addItem(settingsItem)
+        let updateItem = NSMenuItem(
+            title: model.availableUpdateVersion.map { String(format: preferences.text(.updateAvailable), $0) + "…" }
+                ?? preferences.text(.checkForUpdates),
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        updateItem.target = updaterController
+        menu.addItem(updateItem)
         menu.addItem(.separator())
         let quitItem = NSMenuItem(
             title: preferences.text(.quit),
@@ -124,11 +139,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model: model,
             preferences: preferences,
             openSettings: { [weak self] in self?.openSettingsWindow() },
+            checkForUpdates: { [weak self] in self?.checkForUpdates(closing: self?.historyWindow) },
             close: { [weak self] in self?.historyWindow?.close() },
             paste: { [weak self] payload in self?.pasteToPreviousApp(payload) }
         ))
         historyWindow = window
         showNonActivatingHistoryWindow(window)
+    }
+
+    /// Sparkle's windows sit at the normal level, so a floating panel in front would hide them.
+    private func checkForUpdates(closing window: NSWindow?) {
+        window?.close()
+        updaterController.checkForUpdates(nil)
     }
 
     private func pasteToPreviousApp(_ payload: ClipboardPayload) {
@@ -274,7 +296,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.contentView = NSHostingView(rootView: SettingsView(
             model: model,
-            preferences: preferences
+            preferences: preferences,
+            updater: updaterController.updater,
+            checkForUpdates: { [weak self] in self?.checkForUpdates(closing: self?.settingsWindow) }
         ))
         settingsWindow = window
         showCentered(window)
@@ -342,6 +366,29 @@ final class CenteredPanel: NSPanel {
 final class NonActivatingHistoryPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+}
+
+/// Gentle reminders: a menu bar app is rarely active, so an update alert from a background check
+/// would open behind other apps. Only checks near launch show the alert; later ones mark the menu and
+/// history window instead, and the alert opens when the user asks for it.
+extension AppDelegate: @preconcurrency SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool {
+        true
+    }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool {
+        immediateFocus
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        if !handleShowingUpdate {
+            model.availableUpdateVersion = update.displayVersionString
+        }
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        model.availableUpdateVersion = nil
+    }
 }
 
 extension AppDelegate: NSWindowDelegate {

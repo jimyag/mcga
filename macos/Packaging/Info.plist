@@ -22,6 +22,12 @@
     <string>15.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/jimyag/mcga/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>0l8+vvEiY5V6Hh4lp/XCgu4KC8L0ZeocyR1hzLyXcqk=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © jimyag</string>
 </dict>

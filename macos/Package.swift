@@ -14,6 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.3"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.0"),
     ],
     targets: [
         .target(
@@ -22,7 +23,12 @@ let package = Package(
         ),
         .executableTarget(
             name: "MCGA",
-            dependencies: ["MCGACore"]
+            dependencies: [
+                "MCGACore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
+            // The app bundle embeds Sparkle.framework in Contents/Frameworks.
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks"])]
         ),
         .executableTarget(
             name: "MCGASmokeTests",

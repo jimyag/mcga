@@ -45,6 +45,37 @@ jobs:
           CONFIGURATION: release
           CODESIGN_IDENTITY: MCGA Self Signed
 
+      # Sparkle in the installed app reads releases/latest/download/appcast.xml and installs the zip it lists.
+      - name: Sign update and write appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          : "${SPARKLE_PRIVATE_KEY:?SPARKLE_PRIVATE_KEY secret is not set, see README Auto-update}"
+          /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' .build/MCGA.app/Contents/Info.plist > /dev/null
+          VERSION="${GITHUB_REF_NAME#v}"
+          ditto -c -k --sequesterRsrc --keepParent .build/MCGA.app .build/MCGA.zip
+          KEY_FILE="$RUNNER_TEMP/sparkle_private_key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          SIGNATURE="$(.build/artifacts/sparkle/Sparkle/bin/sign_update --ed-key-file "$KEY_FILE" .build/MCGA.zip)"
+          rm -f "$KEY_FILE"
+          cat > .build/appcast.xml <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>MCGA</title>
+              <item>
+                <title>${VERSION}</title>
+                <pubDate>$(date -R)</pubDate>
+                <sparkle:version>${VERSION}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <sparkle:fullReleaseNotesLink>https://github.com/${GITHUB_REPOSITORY}/releases</sparkle:fullReleaseNotesLink>
+                <enclosure url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/MCGA.zip" ${SIGNATURE} type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          EOF
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -61,6 +92,8 @@ jobs:
         run: |
           gh release create ${{ github.ref_name }} \
             .build/MCGA.dmg \
+            .build/MCGA.zip \
+            .build/appcast.xml \
             .build/windows/MCGA.exe \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes

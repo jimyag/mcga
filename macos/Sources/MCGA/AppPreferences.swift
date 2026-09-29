@@ -565,6 +565,11 @@ enum TextKey {
     case categoryTime
     case categoryDataFormat
     case categoryText
+    case updates
+    case checkForUpdates
+    case updateAvailable
+    case automaticallyCheckForUpdates
+    case currentVersion
 
     func value(_ language: AppLanguage) -> String {
         switch (language, self) {
@@ -726,6 +731,16 @@ enum TextKey {
         case (.en, .categoryDataFormat): "Data formats"
         case (.zh, .categoryText): "文本与编码"
         case (.en, .categoryText): "Text & encoding"
+        case (.zh, .updates): "更新"
+        case (.en, .updates): "Updates"
+        case (.zh, .checkForUpdates): "检查更新…"
+        case (.en, .checkForUpdates): "Check for Updates…"
+        case (.zh, .updateAvailable): "更新到 %@"
+        case (.en, .updateAvailable): "Update to %@"
+        case (.zh, .automaticallyCheckForUpdates): "自动检查更新"
+        case (.en, .automaticallyCheckForUpdates): "Check for updates automatically"
+        case (.zh, .currentVersion): "当前版本 %@"
+        case (.en, .currentVersion): "Version %@"
         }
     }
 }

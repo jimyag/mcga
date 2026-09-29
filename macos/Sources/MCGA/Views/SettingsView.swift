@@ -1,10 +1,13 @@
 import AppKit
 import MCGACore
+import Sparkle
 import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: ClipboardModel
     @ObservedObject var preferences: AppPreferences
+    let updater: SPUUpdater
+    let checkForUpdates: () -> Void
     @State private var tab: SettingsTab = .general
 
     var body: some View {
@@ -19,7 +22,7 @@ struct SettingsView: View {
             Divider()
             switch tab {
             case .general:
-                GeneralSettingsView(preferences: preferences)
+                GeneralSettingsView(preferences: preferences, updater: updater, checkForUpdates: checkForUpdates)
             case .parsers:
                 ParserSettingsView(model: model, preferences: preferences)
             }
@@ -58,6 +61,17 @@ enum SettingsTab {
 
 struct GeneralSettingsView: View {
     @ObservedObject var preferences: AppPreferences
+    let updater: SPUUpdater
+    let checkForUpdates: () -> Void
+    /// Sparkle keeps this setting itself; the mirror lets the toggle redraw when it changes.
+    @State private var automaticallyChecksForUpdates: Bool
+
+    init(preferences: AppPreferences, updater: SPUUpdater, checkForUpdates: @escaping () -> Void) {
+        self.preferences = preferences
+        self.updater = updater
+        self.checkForUpdates = checkForUpdates
+        _automaticallyChecksForUpdates = State(initialValue: updater.automaticallyChecksForUpdates)
+    }
 
     var body: some View {
         Form {
@@ -114,9 +128,25 @@ struct GeneralSettingsView: View {
                     }
                 }
             }
+
+            Section(preferences.text(.updates)) {
+                Toggle(preferences.text(.automaticallyCheckForUpdates), isOn: $automaticallyChecksForUpdates)
+                    .onChange(of: automaticallyChecksForUpdates) { _, enabled in
+                        updater.automaticallyChecksForUpdates = enabled
+                    }
+                LabeledContent(String(format: preferences.text(.currentVersion), appVersion)) {
+                    Button(preferences.text(.checkForUpdates)) {
+                        checkForUpdates()
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .toggleStyle(.switch)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
     }
 }
 

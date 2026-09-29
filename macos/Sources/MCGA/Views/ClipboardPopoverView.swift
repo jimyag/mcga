@@ -6,6 +6,7 @@ struct ClipboardPopoverView: View {
     @ObservedObject var model: ClipboardModel
     @ObservedObject var preferences: AppPreferences
     let openSettings: () -> Void
+    let checkForUpdates: () -> Void
     let close: () -> Void
     let paste: (ClipboardPayload) -> Void
     @State private var searchText = ""
@@ -83,6 +84,21 @@ struct ClipboardPopoverView: View {
             .padding(.horizontal, 10)
             .frame(height: 32)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
+
+            if let version = model.availableUpdateVersion {
+                Button {
+                    checkForUpdates()
+                } label: {
+                    Label(String(format: preferences.text(.updateAvailable), version), systemImage: "arrow.down.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.accentText)
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
 
             monitoringButton
 

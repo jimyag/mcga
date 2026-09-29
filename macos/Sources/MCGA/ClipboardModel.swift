@@ -12,6 +12,8 @@ final class ClipboardModel: ObservableObject {
     @Published var copyNotice: String?
     /// The app that pasting from history returns to.
     @Published var pasteTargetName: String?
+    /// Version a background update check found, shown as a gentle reminder until the user acts on it.
+    @Published var availableUpdateVersion: String?
     var onNewResults: ((String, [ParseResult]) -> Void)?
 
     private let engine = ParserEngine()
