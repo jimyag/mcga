@@ -79,6 +79,8 @@ Package `.build/MCGA.app`:
 bash scripts/build-macos-app.sh
 ```
 
+The app version comes from the latest git tag, for example `v0.1.3` becomes `0.1.3`, so a release only needs a new tag.
+
 Package the release-style `.build/MCGA.dmg` used by GitHub Releases:
 
 ```bash

@@ -31,6 +31,12 @@ cp "$ROOT/Packaging/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp "$ROOT/Packaging/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/MCGA"
 
+# The version comes from the latest git tag (the release workflow checks out the tag it
+# builds); without git or tags the bundle keeps the Info.plist value.
+if VERSION="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null)"; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION#v}" "$APP_DIR/Contents/Info.plist"
+fi
+
 # Hardened runtime and a secure timestamp are notarization requirements.
 if [[ "$CODESIGN_IDENTITY" == "Developer ID Application:"* ]]; then
   CODESIGN_OPTIONS+=(--options runtime --timestamp)
