@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import MCGACore
 import ServiceManagement
 import SwiftUI
 
@@ -8,6 +9,10 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     case en
 
     var id: String { rawValue }
+
+    var parserLanguage: ParserLanguage {
+        self == .zh ? .zh : .en
+    }
 }
 enum AppTheme: String, CaseIterable, Identifiable {
     case system
@@ -164,7 +169,10 @@ struct KeyboardShortcut: Equatable {
 @MainActor
 final class AppPreferences: ObservableObject {
     @Published var language: AppLanguage {
-        didSet { defaults.set(language.rawValue, forKey: Keys.language) }
+        didSet {
+            defaults.set(language.rawValue, forKey: Keys.language)
+            onLanguageChanged?()
+        }
     }
 
     @Published var theme: AppTheme {
@@ -204,8 +212,22 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(Array(disabledParserNames).sorted(), forKey: Keys.disabledParsers) }
     }
 
+    @Published var overlayEnabled: Bool {
+        didSet { defaults.set(overlayEnabled, forKey: Keys.overlayEnabled) }
+    }
+
+    @Published var overlaySeconds: Int {
+        didSet { defaults.set(overlaySeconds, forKey: Keys.overlaySeconds) }
+    }
+
+    /// Parsers whose results go to history without showing the overlay.
+    @Published private(set) var silentParserNames: Set<String> {
+        didSet { defaults.set(Array(silentParserNames).sorted(), forKey: Keys.silentParsers) }
+    }
+
     var onHistoryShortcutChanged: ((Bool, KeyboardShortcut) -> Void)?
     var onHistoryRetentionChanged: (() -> Void)?
+    var onLanguageChanged: (() -> Void)?
 
     private let defaults = UserDefaults.standard
 
@@ -223,6 +245,9 @@ final class AppPreferences: ObservableObject {
         self.launchAtLoginNeedsApproval = LoginItemController.needsApproval
         self.historyRetentionDays = defaults.object(forKey: Keys.historyRetentionDays) as? Int ?? 0
         self.disabledParserNames = Set(defaults.stringArray(forKey: Keys.disabledParsers) ?? [])
+        self.overlayEnabled = defaults.object(forKey: Keys.overlayEnabled) as? Bool ?? true
+        self.overlaySeconds = defaults.object(forKey: Keys.overlaySeconds) as? Int ?? 5
+        self.silentParserNames = Set(defaults.stringArray(forKey: Keys.silentParsers) ?? [])
     }
 
     func isParserEnabled(_ name: String) -> Bool {
@@ -234,6 +259,18 @@ final class AppPreferences: ObservableObject {
             disabledParserNames.remove(name)
         } else {
             disabledParserNames.insert(name)
+        }
+    }
+
+    func isParserSilent(_ name: String) -> Bool {
+        silentParserNames.contains(name)
+    }
+
+    func setParser(_ name: String, silent: Bool) {
+        if silent {
+            silentParserNames.insert(name)
+        } else {
+            silentParserNames.remove(name)
         }
     }
 
@@ -267,6 +304,9 @@ final class AppPreferences: ObservableObject {
         static let historyShortcutModifiers = "app.historyShortcut.modifiers"
         static let historyRetentionDays = "app.historyRetentionDays"
         static let disabledParsers = "app.disabledParsers"
+        static let overlayEnabled = "app.overlayEnabled"
+        static let overlaySeconds = "app.overlaySeconds"
+        static let silentParsers = "app.silentParsers"
     }
 }
 
@@ -576,6 +616,21 @@ enum TextKey {
     case actualSize
     case zoomToFit
     case openInPreview
+    case overlay
+    case showOverlay
+    case overlayDuration
+    case secondsValue
+    case showsOverlayHelp
+    case historyOnlyHelp
+    case customParserIssues
+    case pinned
+    case pin
+    case unpin
+    case delete
+    case deleteHelp
+    case clearHistoryPrompt
+    case cancel
+    case clear
 
     func value(_ language: AppLanguage) -> String {
         switch (language, self) {
@@ -597,8 +652,8 @@ enum TextKey {
         case (.en, .emptyHint): "Copy supported content to show parsed results here."
         case (.zh, .quit): "退出"
         case (.en, .quit): "Quit"
-        case (.zh, .clearHistory): "清空历史"
-        case (.en, .clearHistory): "Clear history"
+        case (.zh, .clearHistory): "清空历史，置顶的保留"
+        case (.en, .clearHistory): "Clear history; pinned items stay"
         case (.zh, .noHistory): "暂无历史"
         case (.en, .noHistory): "No history"
         case (.zh, .settings): "设置"
@@ -759,6 +814,36 @@ enum TextKey {
         case (.en, .zoomToFit): "Zoom to Fit ⌘9"
         case (.zh, .openInPreview): "在预览中打开"
         case (.en, .openInPreview): "Open in Preview"
+        case (.zh, .overlay): "浮层"
+        case (.en, .overlay): "Overlay"
+        case (.zh, .showOverlay): "复制后弹出解析浮层"
+        case (.en, .showOverlay): "Show results after copying"
+        case (.zh, .overlayDuration): "浮层停留时间"
+        case (.en, .overlayDuration): "Overlay stays for"
+        case (.zh, .secondsValue): "%d 秒"
+        case (.en, .secondsValue): "%d seconds"
+        case (.zh, .showsOverlayHelp): "匹配时弹出浮层，点击改为只记历史"
+        case (.en, .showsOverlayHelp): "Shows the overlay when it matches; click to keep results in history only"
+        case (.zh, .historyOnlyHelp): "只记历史，不弹浮层，点击恢复弹出"
+        case (.en, .historyOnlyHelp): "Keeps results in history only; click to show the overlay again"
+        case (.zh, .customParserIssues): "自定义解析器配置有问题"
+        case (.en, .customParserIssues): "Custom parser config problems"
+        case (.zh, .pinned): "置顶"
+        case (.en, .pinned): "Pinned"
+        case (.zh, .pin): "置顶"
+        case (.en, .pin): "Pin"
+        case (.zh, .unpin): "取消置顶"
+        case (.en, .unpin): "Unpin"
+        case (.zh, .delete): "删除"
+        case (.en, .delete): "Delete"
+        case (.zh, .deleteHelp): "删除 ⌘⌫"
+        case (.en, .deleteHelp): "Delete ⌘⌫"
+        case (.zh, .clearHistoryPrompt): "清空 %d 条历史？"
+        case (.en, .clearHistoryPrompt): "Clear %d items?"
+        case (.zh, .cancel): "取消"
+        case (.en, .cancel): "Cancel"
+        case (.zh, .clear): "清空"
+        case (.en, .clear): "Clear"
         }
     }
 }

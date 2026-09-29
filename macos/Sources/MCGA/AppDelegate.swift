@@ -34,13 +34,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences.onHistoryRetentionChanged = { [weak self] in
             self?.model.refreshHistory()
         }
+        preferences.onLanguageChanged = { [weak self] in
+            self?.model.reloadParsers()
+        }
         configureHistoryShortcut(enabled: preferences.historyShortcutEnabled, shortcut: preferences.historyShortcut)
         setupWorkspaceActivationTracking()
-        model.onNewResults = { [weak self] content, results in
-            guard let self else { return }
+        model.onResults = { [weak self] id, content, results in
+            guard let self, self.preferences.overlayEnabled else { return }
+            // History keeps every result; parsers set to history only stay out of the overlay.
+            let shown = results.filter { !self.preferences.isParserSilent($0.parserName) }
+            guard !shown.isEmpty else { return }
             self.overlayPresenter.show(
+                id: id,
                 content: content,
-                results: results,
+                results: shown,
+                lifetime: TimeInterval(self.preferences.overlaySeconds),
                 category: { [weak self] name in self?.model.category(forParser: name) ?? .text },
                 preferences: self.preferences,
                 copy: { [weak self] value in self?.model.copy(value) },
@@ -321,6 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openSettingsWindow() {
+        model.reloadParsersIfConfigChanged()
         if let settingsWindow {
             preferences.refreshLaunchAtLogin()
             settingsWindow.center()

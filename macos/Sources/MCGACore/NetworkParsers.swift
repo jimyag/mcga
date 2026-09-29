@@ -18,25 +18,27 @@ struct CIDRParser: ContentParser {
         let network = ipValue & mask
         let broadcast = network | ~mask
         if prefix == 0 {
-            return [ParseResult(parserName: name, original: content, parsed: "默认路由（所有地址）")]
+            return [ParseResult(parserName: name, original: content, parsed: tr("默认路由（所有地址）", "Default route (all addresses)"))]
         }
 
         var lines: [String] = []
         if ipValue != network {
-            lines.append("输入：\(ip.description)/\(prefix) → 网络：\(IPv4Address(network))/\(prefix)")
+            let input = "\(ip.description)/\(prefix)"
+            let masked = "\(IPv4Address(network))/\(prefix)"
+            lines.append(tr("输入：\(input) → 网络：\(masked)", "Input: \(input) → network: \(masked)"))
         }
 
         switch prefix {
         case 32:
-            lines.append("单主机地址：\(IPv4Address(network))")
+            lines.append(labeled("单主机地址", "Single host", "\(IPv4Address(network))"))
         case 31:
-            lines.append("点对点链路（RFC 3021）")
-            lines.append("可用范围：\(IPv4Address(network)) - \(IPv4Address(broadcast)) (2)")
+            lines.append(tr("点对点链路（RFC 3021）", "Point-to-point link (RFC 3021)"))
+            lines.append(labeled("可用范围", "Usable range", "\(IPv4Address(network)) - \(IPv4Address(broadcast)) (2)"))
         default:
             let total = UInt64(1) << UInt64(32 - prefix)
-            lines.append("网络地址：\(IPv4Address(network))")
-            lines.append("广播地址：\(IPv4Address(broadcast))")
-            lines.append("可用范围：\(IPv4Address(network + 1)) - \(IPv4Address(broadcast - 1)) (\(total - 2))")
+            lines.append(labeled("网络地址", "Network", "\(IPv4Address(network))"))
+            lines.append(labeled("广播地址", "Broadcast", "\(IPv4Address(broadcast))"))
+            lines.append(labeled("可用范围", "Usable range", "\(IPv4Address(network + 1)) - \(IPv4Address(broadcast - 1)) (\(total - 2))"))
         }
         return [ParseResult(parserName: name, original: content, parsed: lines.joined(separator: "\n"))]
     }
@@ -49,54 +51,72 @@ struct IPv6Parser: ContentParser {
         guard content.contains(":"), !content.contains(" ") else { return [] }
         let cleaned = content.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         guard let address = IPv6Address(cleaned) else { return [] }
-        let type = address.kind
+        let type = labeled("类型", "Type", address.kind)
         return [ParseResult(
             parserName: name,
             original: content,
-            parsed: "类型：\(type)",
-            details: "压缩：\(address.description)\n展开：\(address.expanded)\n类型：\(type)"
+            parsed: type,
+            details: [
+                labeled("压缩", "Compressed", address.description),
+                labeled("展开", "Expanded", address.expanded),
+                type,
+            ].joined(separator: "\n")
         )]
     }
 }
 
 struct IPParser: ContentParser {
     let name = "IP"
+    let isSlow = true
+    let fetch: HTTPFetch
 
-    func parse(_ content: String, previousContent: String) -> [ParseResult] {
+    func parse(_ content: String, previousContent: String) async -> [ParseResult] {
         guard let address = IPv4Address(content), address.isPublic else { return [] }
-        var parsed = "公网 IP"
-        var details = "八位组：\(address.octets)\n二进制：\(address.octets.map { String($0, radix: 2).leftPadded(to: 8) }.joined(separator: "."))"
-        if let info = IPGeo.lookup(content) {
-            let lines = info.displayLines
-            if !lines.isEmpty {
-                parsed = lines.joined(separator: "\n")
-                details += "\n\n地理位置信息：\n\(parsed)"
-            }
+        var parsed = tr("公网 IP", "Public IP")
+        var details = [
+            labeled("八位组", "Octets", "\(address.octets)"),
+            labeled("二进制", "Binary", address.octets.map { String($0, radix: 2).leftPadded(to: 8) }.joined(separator: ".")),
+        ].joined(separator: "\n")
+        if let lines = await IPGeo.lookup(content, fetch: fetch)?.displayLines, !lines.isEmpty {
+            parsed = lines.joined(separator: "\n")
+            details += "\n\n\(tr("地理位置信息：", "Geolocation:"))\n\(parsed)"
         }
-        return [ParseResult(parserName: "IPv4", original: content, parsed: parsed, details: details)]
+        return [ParseResult(parserName: name, original: content, parsed: parsed, details: details)]
     }
 }
 
 struct DNSParser: ContentParser {
     let name = "DNS"
+    let isSlow = true
+    let fetch: HTTPFetch
     private let domainPattern = ParserUtilities.regex(#"^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"#, options: [.caseInsensitive])
+    private static let providers = [
+        DNSProvider(name: "Cloudflare DoH", url: "https://cloudflare-dns.com/dns-query"),
+        DNSProvider(name: "Google DoH", url: "https://dns.google/resolve"),
+        DNSProvider(name: "AliDNS DoH", url: "https://dns.alidns.com/dns-query"),
+    ]
+    private static let recordTypes: [(number: UInt16, name: String)] = [(1, "A"), (28, "AAAA"), (5, "CNAME")]
 
-    func parse(_ content: String, previousContent: String) -> [ParseResult] {
+    func parse(_ content: String, previousContent: String) async -> [ParseResult] {
         guard ParserUtilities.fullMatch(domainPattern, content) != nil else { return [] }
-        let providers = [
-            DNSProvider(name: "Cloudflare DoH", url: "https://cloudflare-dns.com/dns-query"),
-            DNSProvider(name: "Google DoH", url: "https://dns.google/resolve"),
-            DNSProvider(name: "AliDNS DoH", url: "https://dns.alidns.com/dns-query"),
-        ]
-        let queryTypes: [(UInt16, String)] = [(1, "A"), (28, "AAAA"), (5, "CNAME")]
-        return providers.flatMap { provider in
-            queryTypes.compactMap { typeNumber, typeName in
-                let answers = DNSLookup.query(domain: content, type: typeNumber, provider: provider)
-                    .filter { $0.recordType == typeNumber }
-                guard !answers.isEmpty else { return nil }
-                let parsed = "DNS/\(typeName) via \(provider.name)\n\(answers.map(\.data).joined(separator: "\n"))"
-                return ParseResult(parserName: name, original: content, parsed: parsed)
+        let queries = Self.providers.flatMap { provider in Self.recordTypes.map { (provider, $0) } }
+        // All queries at once; the results keep the provider and record type order.
+        var answers = [[DNSAnswer]](repeating: [], count: queries.count)
+        await withTaskGroup(of: (Int, [DNSAnswer]).self) { group in
+            for (index, (provider, recordType)) in queries.enumerated() {
+                group.addTask {
+                    (index, await DNSLookup.query(domain: content, type: recordType.number, provider: provider, fetch: fetch))
+                }
             }
+            for await (index, result) in group {
+                answers[index] = result.filter { $0.type == queries[index].1.number }
+            }
+        }
+        return zip(queries, answers).compactMap { query, answers in
+            guard !answers.isEmpty else { return nil }
+            let (provider, recordType) = query
+            let parsed = "DNS/\(recordType.name) via \(provider.name)\n\(answers.map(\.data).joined(separator: "\n"))"
+            return ParseResult(parserName: name, original: content, parsed: parsed)
         }
     }
 }
@@ -165,15 +185,15 @@ struct IPv6Address: CustomStringConvertible {
     }
 
     var kind: String {
-        if description == "::1" { return "回环地址 (::1)" }
-        if description == "::" { return "未指定地址 (::)" }
-        if (segments[0] & 0xffc0) == 0xfe80 { return "链路本地地址 (fe80::/10)" }
-        if (segments[0] & 0xfe00) == 0xfc00 { return "唯一本地地址 (fc00::/7)" }
-        if (segments[0] & 0xff00) == 0xff00 { return "多播地址 (ff00::/8)" }
+        if description == "::1" { return tr("回环地址 (::1)", "Loopback (::1)") }
+        if description == "::" { return tr("未指定地址 (::)", "Unspecified (::)") }
+        if (segments[0] & 0xffc0) == 0xfe80 { return tr("链路本地地址 (fe80::/10)", "Link-local (fe80::/10)") }
+        if (segments[0] & 0xfe00) == 0xfc00 { return tr("唯一本地地址 (fc00::/7)", "Unique local (fc00::/7)") }
+        if (segments[0] & 0xff00) == 0xff00 { return tr("多播地址 (ff00::/8)", "Multicast (ff00::/8)") }
         if segments[0...4].allSatisfy({ $0 == 0 }) && segments[5] == 0xffff {
-            return "IPv4 映射地址 (::ffff:0:0/96)"
+            return tr("IPv4 映射地址 (::ffff:0:0/96)", "IPv4-mapped (::ffff:0:0/96)")
         }
-        return "全局单播地址"
+        return tr("全局单播地址", "Global unicast")
     }
 }
 
@@ -187,19 +207,21 @@ private struct IPGeo: Decodable {
 
     var displayLines: [String] {
         [
-            country.flatMap { $0.isEmpty ? nil : "国家：\($0)" },
-            regionName.flatMap { $0.isEmpty ? nil : "地区：\($0)" },
-            city.flatMap { $0.isEmpty ? nil : "城市：\($0)" },
-            isp.flatMap { $0.isEmpty ? nil : "ISP：\($0)" },
-            reverse.flatMap { $0.isEmpty ? nil : "反向 DNS：\($0)" },
-        ].compactMap { $0 }
+            ("国家", "Country", country),
+            ("地区", "Region", regionName),
+            ("城市", "City", city),
+            ("ISP", "ISP", isp),
+            ("反向 DNS", "Reverse DNS", reverse),
+        ].compactMap { zh, en, value in
+            guard let value, !value.isEmpty else { return nil }
+            return labeled(zh, en, value)
+        }
     }
 
-    static func lookup(_ ip: String) -> IPGeo? {
+    static func lookup(_ ip: String, fetch: HTTPFetch) async -> IPGeo? {
         guard let encoded = ip.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "http://ip-api.com/json/\(encoded)?fields=status,message,country,regionName,city,isp,reverse,query&lang=zh-CN")
-        else { return nil }
-        guard let data = BlockingHTTP.get(url: url, timeout: 5, headers: [:]),
+              let url = URL(string: "http://ip-api.com/json/\(encoded)?fields=status,message,country,regionName,city,isp,reverse,query&lang=\(tr("zh-CN", "en"))"),
+              let data = await fetch(URLRequest(url: url, timeoutInterval: 5)),
               let response = try? JSONDecoder().decode(IPGeo.self, from: data),
               response.status == "success"
         else { return nil }
@@ -221,46 +243,23 @@ private struct DNSAnswer: Decodable {
     let type: UInt16
     let TTL: UInt32
     let data: String
-
-    var recordType: UInt16 { type }
 }
 
 private enum DNSLookup {
-    static func query(domain: String, type: UInt16, provider: DNSProvider) -> [DNSAnswer] {
+    static func query(domain: String, type: UInt16, provider: DNSProvider, fetch: HTTPFetch) async -> [DNSAnswer] {
         guard var components = URLComponents(string: provider.url) else { return [] }
         components.queryItems = [
             URLQueryItem(name: "name", value: domain),
             URLQueryItem(name: "type", value: "\(type)"),
         ]
-        guard let url = components.url,
-              let data = BlockingHTTP.get(url: url, timeout: 3, headers: ["Accept": "application/dns-json"]),
+        guard let url = components.url else { return [] }
+        var request = URLRequest(url: url, timeoutInterval: 3)
+        request.setValue("application/dns-json", forHTTPHeaderField: "Accept")
+        guard let data = await fetch(request),
               let response = try? JSONDecoder().decode(DNSResponse.self, from: data),
               response.Status == 0
         else { return [] }
         return response.Answer ?? []
-    }
-}
-
-private enum BlockingHTTP {
-    static func get(url: URL, timeout: TimeInterval, headers: [String: String]) -> Data? {
-        var request = URLRequest(url: url, timeoutInterval: timeout)
-        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-        let semaphore = DispatchSemaphore(value: 0)
-        final class Box: @unchecked Sendable {
-            var data: Data?
-        }
-        let box = Box()
-        let task = URLSession.shared.dataTask(with: request) { data, _, _ in
-            box.data = data
-            semaphore.signal()
-        }
-        task.resume()
-        let result = semaphore.wait(timeout: .now() + timeout)
-        if result == .timedOut {
-            task.cancel()
-            return nil
-        }
-        return box.data
     }
 }
 

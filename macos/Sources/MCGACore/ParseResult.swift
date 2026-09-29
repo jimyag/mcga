@@ -67,13 +67,13 @@ public struct ResultField: Equatable, Sendable {
 public protocol ContentParser: Sendable {
     var name: String { get }
     var info: ParserInfo? { get }
-    func parse(_ content: String, previousContent: String) -> [ParseResult]
+    /// Network lookups and external commands. The engine runs them concurrently after the other
+    /// parsers, so a slow one never holds back results that are already known.
+    var isSlow: Bool { get }
+    func parse(_ content: String, previousContent: String) async -> [ParseResult]
 }
 
 public extension ContentParser {
     var info: ParserInfo? { nil }
-
-    func parse(_ content: String) -> [ParseResult] {
-        parse(content, previousContent: "")
-    }
+    var isSlow: Bool { false }
 }

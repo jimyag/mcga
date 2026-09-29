@@ -1,5 +1,26 @@
 import Foundation
 
+/// Language of parser results and of custom parser config messages.
+public enum ParserLanguage: String, Sendable {
+    case zh
+    case en
+}
+
+enum Localization {
+    /// Bound by `ParserEngine` around each parse and config load, so parsers pick their text
+    /// without passing the language through every helper.
+    @TaskLocal static var language: ParserLanguage = .zh
+}
+
+func tr(_ zh: String, _ en: String) -> String {
+    Localization.language == .zh ? zh : en
+}
+
+/// "label：value" in Chinese and "label: value" in English; `ResultTextLayout` reads both as a field.
+func labeled(_ zh: String, _ en: String, _ value: String) -> String {
+    tr("\(zh)：\(value)", "\(en): \(value)")
+}
+
 enum ParserUtilities {
     static func utcString(from date: Date) -> String {
         let formatter = DateFormatter()

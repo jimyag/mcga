@@ -74,7 +74,7 @@ struct Base64DecodeGenerator: ContentParser {
             parserName: name,
             original: content,
             parsed: decoded,
-            details: "格式：\(variant)"
+            details: labeled("格式", "Format", variant)
         )]
     }
 }

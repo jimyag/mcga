@@ -11,6 +11,13 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
 - Clipboard history is ordered by activity: new clipboard entries, copied history items, and pasted history items move to the top.
 - Copy parsed result content without copying parser titles.
 - Parser settings window with Chinese / English UI, light / dark theme, and per-parser toggles.
+- On macOS:
+  - Copying the same text again moves its history entry up instead of adding a duplicate.
+  - The history window pins items to the top, deletes one item with `⌘⌫`, and pastes one of the first nine with `⌘1`–`⌘9`. Clearing history asks first and keeps pinned items.
+  - Copied images are kept at full size, so copying them back from history loses nothing.
+  - Parser results follow the interface language.
+  - The popup can be turned off, its duration set, and each parser set to keep its results in history only.
+  - Custom command parsers and the network parsers (IP, DNS) run after the others, and their results join the popup and history as they arrive.
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.
 - Automatic updates on macOS through Sparkle.
@@ -180,7 +187,8 @@ Only command parsers are supported. MCGA executes the configured command, writes
 - stderr is ignored
 - command paths support absolute paths, `~`, `$HOME`, and `${HOME}`
 - commands must be executable files
-- `timeoutMs` is clamped to 50-3000 ms, default 500 ms
+- `timeoutMs` is clamped to 50-10000 ms on macOS and 50-3000 ms on Windows, default 500 ms
+- on macOS, edits to the config apply on the next copy or when Settings opens, and problems such as invalid JSON, an invalid `match` pattern, or a command that is missing or not executable are listed in Settings > Parsers
 
 Example:
 

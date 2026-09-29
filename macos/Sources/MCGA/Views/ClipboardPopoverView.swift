@@ -15,6 +15,8 @@ struct ClipboardPopoverView: View {
     @State private var selectedHistoryID: UInt64?
     @State private var focusedPane: HistoryFocusPane = .original
     @State private var selectedResultIndex = 0
+    /// Clearing asks inline: an alert or a sheet would take key status and close the panel.
+    @State private var confirmingClear = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,20 +190,41 @@ struct ClipboardPopoverView: View {
     }
 
     private func historyList(_ entries: [HistoryEntry]) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(String(format: preferences.text(.historyCount), entries.count))
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.mutedText)
-                Spacer()
-                Button {
-                    model.clearHistory()
-                    selectedHistoryID = nil
-                } label: {
-                    Image(systemName: "trash")
+        // ⌘1 to ⌘9 paste the first nine rows as shown.
+        let shortcuts = Dictionary(entries.prefix(9).enumerated().map { ($1.id, $0 + 1) }, uniquingKeysWith: { first, _ in first })
+        let clearable = model.history.count { !$0.isPinned }
+        return VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                if confirmingClear {
+                    Text(String(format: preferences.text(.clearHistoryPrompt), clearable))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.warningText)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button(preferences.text(.cancel)) {
+                        confirmingClear = false
+                    }
+                    .controlSize(.small)
+                    Button(preferences.text(.clear), role: .destructive) {
+                        confirmingClear = false
+                        model.clearHistory()
+                        selectedHistoryID = nil
+                    }
+                    .controlSize(.small)
+                } else {
+                    Text(String(format: preferences.text(.historyCount), entries.count))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.mutedText)
+                    Spacer()
+                    Button {
+                        confirmingClear = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(InteractiveIconButtonStyle())
+                    .help(preferences.text(.clearHistory))
+                    .disabled(clearable == 0)
                 }
-                .buttonStyle(InteractiveIconButtonStyle())
-                .help(preferences.text(.clearHistory))
             }
             .padding(.leading, 16)
             .padding(.trailing, 10)
@@ -218,7 +241,7 @@ struct ClipboardPopoverView: View {
                                 .padding(.top, 6)
                                 .padding(.bottom, 4)
                             ForEach(group.entries) { entry in
-                                historyRow(entry)
+                                historyRow(entry, shortcut: shortcuts[entry.id])
                                     .id(entry.id)
                             }
                         }
@@ -243,7 +266,7 @@ struct ClipboardPopoverView: View {
         }
     }
 
-    private func historyRow(_ entry: HistoryEntry) -> some View {
+    private func historyRow(_ entry: HistoryEntry, shortcut: Int?) -> some View {
         let isSelected = selectedHistoryID == entry.id
         let isActive = isSelected && focusedPane == .original
         return Button {
@@ -269,6 +292,16 @@ struct ClipboardPopoverView: View {
                     .foregroundStyle(Color.mutedText)
                 }
                 Spacer(minLength: 0)
+                if entry.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.mutedText)
+                }
+                if let shortcut {
+                    Text("⌘\(shortcut)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.mutedText)
+                }
             }
             .padding(.horizontal, 10)
             .frame(height: 50)
@@ -279,6 +312,14 @@ struct ClipboardPopoverView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(preferences.text(entry.isPinned ? .unpin : .pin)) {
+                model.setPinned(!entry.isPinned, forEntry: entry.id)
+            }
+            Button(preferences.text(.delete), role: .destructive) {
+                delete(entry)
+            }
+        }
     }
 
     /// A light accent tint marks the pane that Return acts on; gray keeps the row found when it doesn't.
@@ -327,6 +368,20 @@ struct ClipboardPopoverView: View {
                     .font(.system(size: 12))
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                Button {
+                    model.setPinned(!entry.isPinned, forEntry: entry.id)
+                } label: {
+                    Image(systemName: entry.isPinned ? "pin.slash" : "pin")
+                }
+                .buttonStyle(InteractiveIconButtonStyle())
+                .help(preferences.text(entry.isPinned ? .unpin : .pin))
+                Button {
+                    delete(entry)
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(InteractiveIconButtonStyle())
+                .help(preferences.text(.deleteHelp))
                 Button {
                     copyPayload(originalPayload(entry), entry: entry)
                 } label: {
@@ -388,9 +443,10 @@ struct ClipboardPopoverView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            // History keeps a 900 px preview; a copied file still has its original.
-                            if let filePath = attachment.filePath, let original = NSImage(contentsOfFile: filePath) {
-                                showImage(original, URL(fileURLWithPath: filePath))
+                            // The preview is at most 900 pixels; show the copied file or the kept image.
+                            if let full = attachment.filePath ?? attachment.originalAssetPath,
+                               let original = NSImage(contentsOfFile: full) {
+                                showImage(original, URL(fileURLWithPath: full))
                             } else {
                                 showImage(image, URL(fileURLWithPath: path))
                             }
@@ -568,10 +624,14 @@ struct ClipboardPopoverView: View {
         var entries: [HistoryEntry]
     }
 
+    /// Pinned entries lead, as `HistoryStore.allRecent` orders them.
     private func dayGroups(_ entries: [HistoryEntry]) -> [HistoryDayGroup] {
         let calendar = Calendar.current
-        var groups: [HistoryDayGroup] = []
-        for entry in entries {
+        let pinned = entries.filter(\.isPinned)
+        var groups = pinned.isEmpty
+            ? []
+            : [HistoryDayGroup(id: -1, day: .distantFuture, title: preferences.text(.pinned), entries: pinned)]
+        for entry in entries where !entry.isPinned {
             let day = calendar.startOfDay(for: entry.timestamp)
             if groups.last?.day == day {
                 groups[groups.count - 1].entries.append(entry)
@@ -659,7 +719,10 @@ struct ClipboardPopoverView: View {
     private func originalMeta(_ entry: HistoryEntry) -> String {
         var parts: [String] = []
         if let attachment = entry.attachment {
-            parts.append(attachment.metadataText)
+            parts.append(attachment.metadataText(
+                imageLabel: entry.contentKind == .image ? preferences.text(.kindImage) : nil,
+                fileLabel: preferences.text(.kindFile)
+            ))
         } else if entry.originalContentTruncated != true {
             parts.append(String(format: preferences.text(.characterCount), (entry.originalContent ?? entry.originalPreview).count))
         }
@@ -712,11 +775,18 @@ struct ClipboardPopoverView: View {
         if let filePath = entry.attachment?.filePath {
             return .file(URL(fileURLWithPath: filePath))
         }
-        if entry.contentKind == .image,
-           let assetPath = entry.attachment?.assetPath {
-            return .image(URL(fileURLWithPath: assetPath))
+        if let image = imagePayload(entry) {
+            return image
         }
         return .text(entry.originalPreview)
+    }
+
+    /// The image as copied; entries from before it was kept have only the preview.
+    private func imagePayload(_ entry: HistoryEntry) -> ClipboardPayload? {
+        guard entry.contentKind == .image,
+              let path = entry.attachment?.originalAssetPath ?? entry.attachment?.assetPath
+        else { return nil }
+        return .image(URL(fileURLWithPath: path))
     }
 
     private func parsedOrPreviewPayload(_ entry: HistoryEntry) -> ClipboardPayload {
@@ -730,11 +800,21 @@ struct ClipboardPopoverView: View {
         if let filePath = entry.attachment?.filePath {
             return .file(URL(fileURLWithPath: filePath))
         }
-        if entry.contentKind == .image,
-           let assetPath = entry.attachment?.assetPath {
-            return .image(URL(fileURLWithPath: assetPath))
+        if let image = imagePayload(entry) {
+            return image
         }
         return .text(entry.originalPreview)
+    }
+
+    /// Keeps the selection in place: the next entry, or the previous one at the end.
+    private func delete(_ entry: HistoryEntry) {
+        let entries = filteredHistory
+        if selectedHistoryID == entry.id, let index = entries.firstIndex(where: { $0.id == entry.id }) {
+            let neighbor = index + 1 < entries.count ? index + 1 : index - 1
+            selectedHistoryID = entries.indices.contains(neighbor) ? entries[neighbor].id : nil
+            selectedResultIndex = 0
+        }
+        model.deleteHistoryEntry(id: entry.id)
     }
 
     private func selectFirstHistoryIfNeeded() {
@@ -779,6 +859,15 @@ struct ClipboardPopoverView: View {
             if let entry = selectedHistoryEntry, let payload = focusedContentPayload {
                 model.promoteHistoryEntry(id: entry.id)
                 paste(payload)
+            }
+        case .pasteEntry(let index):
+            let entries = filteredHistory
+            guard entries.indices.contains(index) else { return }
+            model.promoteHistoryEntry(id: entries[index].id)
+            paste(originalPayload(entries[index]))
+        case .delete:
+            if let entry = selectedHistoryEntry {
+                delete(entry)
             }
         case .close:
             close()
@@ -896,6 +985,9 @@ enum HistoryKeyAction {
     case focusParsed
     case copy
     case paste
+    /// ⌘1 to ⌘9: paste the original of that row, counting from zero.
+    case pasteEntry(Int)
+    case delete
     case close
 }
 
@@ -962,15 +1054,21 @@ final class HistoryKeyboardCaptureNSView: NSView {
         }
     }
 
+    /// The digit row by key code, the same keys on every layout.
+    private static let digitKeyCodes: [UInt16: Int] = [18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9]
+
     @discardableResult
     private func handleKeyDown(_ event: NSEvent) -> Bool {
+        let command = event.modifierFlags.contains(.command)
+        if command, let digit = Self.digitKeyCodes[event.keyCode] {
+            onAction?(.pasteEntry(digit - 1))
+            return true
+        }
         switch event.keyCode {
         case 36:
-            if event.modifierFlags.contains(.command) {
-                onAction?(.copy)
-            } else {
-                onAction?(.paste)
-            }
+            onAction?(command ? .copy : .paste)
+        case 51 where command:
+            onAction?(.delete)
         case 53:
             onAction?(.close)
         case 123:
@@ -1016,10 +1114,11 @@ private extension HistoryEntry {
 }
 
 private extension HistoryAttachment {
-    var metadataText: String {
+    /// Copied images store the English word "Image" as their type, so the caller passes the label.
+    func metadataText(imageLabel: String?, fileLabel: String) -> String {
         var parts: [String] = []
-        if let fileType {
-            parts.append(fileType)
+        if let type = imageLabel ?? fileType {
+            parts.append(type)
         }
         if let fileSize {
             parts.append(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
@@ -1027,6 +1126,6 @@ private extension HistoryAttachment {
         if let imageWidth, let imageHeight {
             parts.append("\(imageWidth) × \(imageHeight)")
         }
-        return parts.isEmpty ? "File" : parts.joined(separator: " · ")
+        return parts.isEmpty ? fileLabel : parts.joined(separator: " · ")
     }
 }

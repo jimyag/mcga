@@ -50,7 +50,7 @@ struct HTMLEntityParser: ContentParser {
         }
         let decoded = decode(content)
         guard decoded != content else { return [] }
-        return [ParseResult(parserName: name, original: content, parsed: decoded, details: "原始长度：\(content.count)\n解码长度：\(decoded.count)")]
+        return [ParseResult(parserName: name, original: content, parsed: decoded, details: lengths(content, decoded))]
     }
 
     private func decode(_ value: String) -> String {
@@ -94,12 +94,7 @@ struct UnicodeEscapeParser: ContentParser {
         }
         let decoded = decode(content)
         guard decoded != content else { return [] }
-        return [ParseResult(
-            parserName: name,
-            original: content,
-            parsed: decoded,
-            details: "原始长度：\(content.count)\n解码长度：\(decoded.count)"
-        )]
+        return [ParseResult(parserName: name, original: content, parsed: decoded, details: lengths(content, decoded))]
     }
 
     private func decode(_ value: String) -> String {
@@ -202,14 +197,14 @@ struct HTTPStatusParser: ContentParser {
     func parse(_ content: String, previousContent: String) -> [ParseResult] {
         guard content.count == 3, let code = Int(content), let phrase = phrases[code] else { return [] }
         let klass = switch code {
-        case 100..<200: "信息响应"
-        case 200..<300: "成功"
-        case 300..<400: "重定向"
-        case 400..<500: "客户端错误"
-        case 500..<600: "服务端错误"
-        default: "未知"
+        case 100..<200: tr("信息响应", "Informational")
+        case 200..<300: tr("成功", "Success")
+        case 300..<400: tr("重定向", "Redirection")
+        case 400..<500: tr("客户端错误", "Client error")
+        case 500..<600: tr("服务端错误", "Server error")
+        default: tr("未知", "Unknown")
         }
-        return [ParseResult(parserName: name, original: content, parsed: "\(code) \(phrase)\n类型：\(klass)")]
+        return [ParseResult(parserName: name, original: content, parsed: "\(code) \(phrase)\n\(labeled("类型", "Class", klass))")]
     }
 
     private let phrases: [Int: String] = [
@@ -245,7 +240,7 @@ struct NumberBaseParser: ContentParser {
         }
         guard let value = parsed else { return [] }
         let lines = [
-            "输入进制：\(sourceBase)",
+            labeled("输入进制", "Input base", "\(sourceBase)"),
             "DEC: \(value)",
             "HEX: 0x\(String(value, radix: 16).uppercased())",
             "OCT: 0o\(String(value, radix: 8))",
@@ -273,18 +268,24 @@ struct TOMLParser: ContentParser {
         return [ParseResult(
             parserName: name,
             original: content,
-            parsed: "TOML  大小：\(content.utf8.count) 字节",
+            parsed: "TOML  " + tr("大小：\(content.utf8.count) 字节", "Size: \(content.utf8.count) bytes"),
             details: formatted
         )]
     }
 
+    /// One "a = b" line is usually code, so a snippet needs a key plus another key or a table.
     private func looksLikeTOML(_ content: String) -> Bool {
-        content.lines.contains { line in
+        var assignments = 0
+        var tables = 0
+        for line in content.lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            let uncommented = String(trimmed.prefix { $0 != "#" })
-            return trimmed.hasPrefix("[") && trimmed.hasSuffix("]")
-                || ParserUtilities.fullMatch(assignment, uncommented) != nil
+            if trimmed.hasPrefix("["), trimmed.hasSuffix("]") {
+                tables += 1
+            } else if ParserUtilities.fullMatch(assignment, String(trimmed.prefix { $0 != "#" })) != nil {
+                assignments += 1
+            }
         }
+        return assignments >= 1 && assignments + tables >= 2
     }
 
     private func formatLine(_ line: Substring) -> String {
@@ -317,10 +318,15 @@ struct XMLFormatParser: ContentParser {
         return [ParseResult(
             parserName: name,
             original: content,
-            parsed: "Root: \(root)\n大小：\(content.utf8.count) 字节",
+            parsed: "Root: \(root)\n" + tr("大小：\(content.utf8.count) 字节", "Size: \(content.utf8.count) bytes"),
             details: formatted
         )]
     }
+}
+
+/// Details for decoders that only change the text.
+private func lengths(_ original: String, _ decoded: String) -> String {
+    "\(labeled("原始长度", "Original length", "\(original.count)"))\n\(labeled("解码长度", "Decoded length", "\(decoded.count)"))"
 }
 
 private extension String {

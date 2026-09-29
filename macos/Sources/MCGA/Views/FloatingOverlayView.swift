@@ -11,18 +11,29 @@ final class OverlayCountdown: ObservableObject {
 @MainActor
 final class FloatingOverlayPresenter {
     static let width: CGFloat = 360
-    private static let lifetime: TimeInterval = 5
     private var panels: [NSPanel] = []
+    /// The newest copy's panel, updated in place as slower results arrive.
+    private var latest: (id: UInt64, panel: NSPanel, view: NSHostingView<FloatingOverlayView>)?
 
     func show(
+        id: UInt64,
         content: String,
         results: [ParseResult],
+        lifetime: TimeInterval,
         category: @escaping (String) -> ParserCategory,
         preferences: AppPreferences,
         copy: @escaping (String) -> Void,
         showHistory: @escaping () -> Void
     ) {
         guard let screen = NSScreen.main else { return }
+        if let latest, latest.id == id {
+            // Once its panel is gone, a copy's later results stay in history instead of popping up again.
+            guard latest.panel.isVisible else { return }
+            latest.view.rootView.results = results
+            latest.panel.setContentSize(NSSize(width: Self.width, height: fittingHeight(of: latest.view, on: screen)))
+            layoutPanels(on: screen)
+            return
+        }
         while panels.count >= 2 {
             panels.removeFirst().orderOut(nil)
         }
@@ -37,9 +48,8 @@ final class FloatingOverlayPresenter {
             copy: copy,
             showHistory: showHistory
         ))
-        let height = min(hostingView.fittingSize.height, screen.visibleFrame.height * 0.5)
         let panel = NonActivatingOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: height),
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: fittingHeight(of: hostingView, on: screen)),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -54,9 +64,14 @@ final class FloatingOverlayPresenter {
         panel.contentView = hostingView
 
         panels.append(panel)
+        latest = (id, panel, hostingView)
         layoutPanels(on: screen)
         panel.orderFrontRegardless()
-        dismissWhenIdle(panel, countdown: countdown, screen: screen)
+        dismissWhenIdle(panel, countdown: countdown, lifetime: lifetime, screen: screen)
+    }
+
+    private func fittingHeight(of view: NSView, on screen: NSScreen) -> CGFloat {
+        min(view.fittingSize.height, screen.visibleFrame.height * 0.5)
     }
 
     /// Stacks the panels upward from the bottom-right corner, oldest lowest.
@@ -79,16 +94,16 @@ final class FloatingOverlayPresenter {
     }
 
     /// Counts down only while the pointer is outside the panel, so a result being read stays.
-    private func dismissWhenIdle(_ panel: NSPanel, countdown: OverlayCountdown, screen: NSScreen) {
+    private func dismissWhenIdle(_ panel: NSPanel, countdown: OverlayCountdown, lifetime: TimeInterval, screen: NSScreen) {
         Task { [weak self, weak panel] in
             let step: TimeInterval = 0.1
-            var remaining = Self.lifetime
+            var remaining = lifetime
             while remaining > 0 {
                 try? await Task.sleep(for: .seconds(step))
                 guard let panel, panel.isVisible else { return }
-                remaining = panel.frame.contains(NSEvent.mouseLocation) ? Self.lifetime : remaining - step
+                remaining = panel.frame.contains(NSEvent.mouseLocation) ? lifetime : remaining - step
                 // Unchanged values must not publish: a redraw resets any text selection in the panel.
-                let fraction = max(0, remaining / Self.lifetime)
+                let fraction = max(0, remaining / lifetime)
                 if countdown.remaining != fraction {
                     countdown.remaining = fraction
                 }
@@ -103,7 +118,8 @@ final class FloatingOverlayPresenter {
 
 struct FloatingOverlayView: View {
     let content: String
-    let results: [ParseResult]
+    /// Grows while slow parsers report.
+    var results: [ParseResult]
     let category: (String) -> ParserCategory
     @ObservedObject var preferences: AppPreferences
     /// Observed only by the bar, so ticks do not redraw the selectable text.

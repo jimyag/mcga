@@ -1,12 +1,33 @@
 import Foundation
 
+/// Fetches a URL for the network parsers; tests pass a stub so they run offline.
+public typealias HTTPFetch = @Sendable (URLRequest) async -> Data?
+
 public struct ParserEngine: Sendable {
     public static let maximumInputBytes = 256 * 1024
 
-    private let parsers: [any ContentParser]
+    public static let urlSessionFetch: HTTPFetch = { request in
+        try? await URLSession.shared.data(for: request).0
+    }
 
-    public init() {
-        self.parsers = [
+    private let parsers: [any ContentParser]
+    private let language: ParserLanguage
+    public let parserInfos: [ParserInfo]
+    /// Categories keyed by the `parserName` that results carry.
+    public let parserCategories: [String: ParserCategory]
+    /// Problems in the custom parser config, for settings to show.
+    public let customParserIssues: [String]
+
+    /// A nil `customParserConfig` loads no custom parsers.
+    public init(
+        language: ParserLanguage = .zh,
+        customParserConfig: URL? = ParserEngine.customParserConfigURL,
+        fetch: @escaping HTTPFetch = ParserEngine.urlSessionFetch
+    ) {
+        let custom = Localization.$language.withValue(language) {
+            customParserConfig.map(CustomCommandParser.load(from:)) ?? (parsers: [], issues: [])
+        }
+        let parsers: [any ContentParser] = [
             UUIDGenerator(),
             TimestampGenerator(),
             TimeGenerator(),
@@ -15,14 +36,14 @@ public struct ParserEngine: Sendable {
             Base64DecodeGenerator(),
             PasswordGenerator(),
         ]
-        + CustomCommandParser.load()
+        + custom.parsers
         + [
             CIDRParser(),
             UUIDParser(),
             ObjectIDParser(),
             HashParser(),
             IPv6Parser(),
-            IPParser(),
+            IPParser(fetch: fetch),
             TimestampParser(),
             HTTPStatusParser(),
             NumberBaseParser(),
@@ -36,65 +57,75 @@ public struct ParserEngine: Sendable {
             HTMLEntityParser(),
             UnicodeEscapeParser(),
             Base64Parser(),
-            DNSParser(),
+            DNSParser(fetch: fetch),
         ]
+        let infos = parsers.map { $0.info ?? ParserCatalog.info(for: $0.name) }
+        var categories = Dictionary(infos.map { ($0.name, $0.category) }, uniquingKeysWith: { first, _ in first })
+        // Older history entries label IP results "IPv4".
+        categories["IPv4"] = .network
+        self.parsers = parsers
+        self.language = language
+        self.parserInfos = infos
+        self.parserCategories = categories
+        self.customParserIssues = custom.issues
     }
 
     public var parserNames: [String] {
         parsers.map(\.name)
     }
 
-    public var parserInfos: [ParserInfo] {
-        parsers.map { $0.info ?? ParserCatalog.info(for: $0.name) }
-    }
-
-    /// Categories keyed by the `parserName` that results carry.
-    public var parserCategories: [String: ParserCategory] {
-        var categories = Dictionary(parserInfos.map { ($0.name, $0.category) }, uniquingKeysWith: { first, _ in first })
-        // IPParser labels its results "IPv4".
-        categories["IPv4"] = .network
-        return categories
-    }
-
     public static var customParserConfigURL: URL {
         CustomCommandParser.configURL
     }
 
-    public func parse(
-        _ content: String,
+    /// Local parsers answer at once; slow ones (network lookups, commands) then run concurrently.
+    /// The stream starts with the local results and adds each slow parser's results as they
+    /// arrive. Every element is the full list so far, in parser order.
+    public func results(
+        for content: String,
         previousContent: String = "",
         enabledParserNames: Set<String>? = nil
-    ) -> ParseResult? {
-        guard Self.canParse(content) else { return nil }
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
+    ) -> AsyncStream<[ParseResult]> {
+        let trimmed = content.mcgaTrimmed
         let previousContent = Self.canParse(previousContent) ? previousContent : ""
-        for parser in parsers {
-            if let enabledParserNames, !enabledParserNames.contains(parser.name) {
-                continue
+        let active = Self.canParse(content) && !trimmed.isEmpty
+            ? parsers.indices.filter { enabledParserNames?.contains(parsers[$0].name) ?? true }
+            : []
+        let (stream, continuation) = AsyncStream.makeStream(of: [ParseResult].self)
+        let task = Task { [parsers, language] in
+            await Localization.$language.withValue(language) {
+                var found = [[ParseResult]](repeating: [], count: parsers.count)
+                for index in active where !parsers[index].isSlow {
+                    found[index] = await parsers[index].parse(trimmed, previousContent: previousContent)
+                }
+                continuation.yield(found.flatMap { $0 })
+                await withTaskGroup(of: (Int, [ParseResult]).self) { group in
+                    for index in active where parsers[index].isSlow {
+                        group.addTask { (index, await parsers[index].parse(trimmed, previousContent: previousContent)) }
+                    }
+                    for await (index, results) in group where !results.isEmpty {
+                        found[index] = results
+                        continuation.yield(found.flatMap { $0 })
+                    }
+                }
             }
-            if let first = parser.parse(trimmed, previousContent: previousContent).first {
-                return first
-            }
+            continuation.finish()
         }
-        return nil
+        continuation.onTermination = { _ in task.cancel() }
+        return stream
     }
 
+    /// The final list of `results(for:)`.
     public func parseAll(
         _ content: String,
         previousContent: String = "",
         enabledParserNames: Set<String>? = nil
-    ) -> [ParseResult] {
-        guard Self.canParse(content) else { return [] }
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-        let previousContent = Self.canParse(previousContent) ? previousContent : ""
-        return parsers.flatMap { parser in
-            if let enabledParserNames, !enabledParserNames.contains(parser.name) {
-                return [ParseResult]()
-            }
-            return parser.parse(trimmed, previousContent: previousContent)
+    ) async -> [ParseResult] {
+        var all: [ParseResult] = []
+        for await update in results(for: content, previousContent: previousContent, enabledParserNames: enabledParserNames) {
+            all = update
         }
+        return all
     }
 
     public static func canParse(_ content: String) -> Bool {

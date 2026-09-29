@@ -5,42 +5,45 @@ import UniformTypeIdentifiers
 @MainActor
 final class ClipboardModel: ObservableObject {
     @Published var isPaused = false
-    @Published var currentContent = ""
-    @Published var results: [ParseResult] = []
     @Published var history: [HistoryEntry] = []
-    @Published var lastUpdated: Date?
     @Published var copyNotice: String?
     /// The app that pasting from history returns to.
     @Published var pasteTargetName: String?
     /// Version a background update check found, shown as a gentle reminder until the user acts on it.
     @Published var availableUpdateVersion: String?
-    var onNewResults: ((String, [ParseResult]) -> Void)?
+    /// Rebuilt when the language or the custom parser config changes.
+    @Published private(set) var engine: ParserEngine
+    /// Results of the latest copy as they arrive: local parsers first, slow ones later. The id
+    /// changes with every copy.
+    var onResults: ((UInt64, String, [ParseResult]) -> Void)?
 
-    private let engine = ParserEngine()
     private let preferences: AppPreferences
+    private var customParserConfigDate: Date?
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
+    /// The clipboard text now, whether copied elsewhere or by MCGA; copying it again is not a new copy.
+    private var currentContent = ""
+    /// The text before the current copy, for the b64 and db64 keywords.
     private var previousContent = ""
     private var parseGeneration: UInt64 = 0
-    private let filePreviewLimit = 256 * 1024
-    private let imagePreviewMaxSide: CGFloat = 900
-
-    var parserNames: [String] {
-        engine.parserNames
-    }
+    private nonisolated static let filePreviewLimit = 256 * 1024
 
     var parserInfos: [ParserInfo] {
         engine.parserInfos
     }
 
-    private lazy var parserCategories = engine.parserCategories
+    var customParserIssues: [String] {
+        engine.customParserIssues
+    }
 
     func category(forParser name: String) -> ParserCategory {
-        parserCategories[name] ?? .text
+        engine.parserCategories[name] ?? .text
     }
 
     init(preferences: AppPreferences) {
         self.preferences = preferences
+        self.customParserConfigDate = Self.customParserConfigDate()
+        self.engine = ParserEngine(language: preferences.language.parserLanguage)
     }
 
     func start() {
@@ -80,6 +83,36 @@ final class ClipboardModel: ObservableObject {
         }
     }
 
+    func deleteHistoryEntry(id: UInt64) {
+        Task {
+            await HistoryStore.shared.delete(id: id)
+            refreshHistory()
+        }
+    }
+
+    func setPinned(_ pinned: Bool, forEntry id: UInt64) {
+        Task {
+            await HistoryStore.shared.setPinned(id: id, pinned)
+            refreshHistory()
+        }
+    }
+
+    /// Picks up a language change or an edit to the custom parser config.
+    func reloadParsers() {
+        customParserConfigDate = Self.customParserConfigDate()
+        engine = ParserEngine(language: preferences.language.parserLanguage)
+    }
+
+    func reloadParsersIfConfigChanged() {
+        if Self.customParserConfigDate() != customParserConfigDate {
+            reloadParsers()
+        }
+    }
+
+    private static func customParserConfigDate() -> Date? {
+        try? ParserEngine.customParserConfigURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+    }
+
     func copy(_ value: String) {
         copy(.text(value))
     }
@@ -100,6 +133,14 @@ final class ClipboardModel: ObservableObject {
             }
         }
         lastChangeCount = pasteboard.changeCount
+        // MCGA's own copy is not parsed, but it is the clipboard now: copying the earlier text
+        // again, such as a generator keyword, parses it, and b64 or db64 act on this value.
+        if case .text(let value) = payload {
+            currentContent = value
+            previousContent = value
+        } else {
+            currentContent = ""
+        }
         copyNotice = preferences.text(.copied)
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.4))
@@ -119,61 +160,79 @@ final class ClipboardModel: ObservableObject {
 
         let fileURLs = pasteboardFileURLs(pasteboard)
         if !fileURLs.isEmpty {
-            parseGeneration &+= 1
-            for fileURL in fileURLs {
-                appendFileHistory(fileURL)
-            }
+            appendFileHistory(fileURLs)
             return
         }
 
-        if let image = NSImage(pasteboard: pasteboard) {
-            parseGeneration &+= 1
+        let text = pasteboard.string(forType: .string).flatMap { $0.isEmpty ? nil : $0 }
+        if prefersImage(over: text, in: pasteboard), let image = pasteboardImageData(pasteboard) {
             appendImageHistory(image)
             return
         }
 
-        guard let content = pasteboard.string(forType: .string), content != currentContent else { return }
+        guard let text, text != currentContent else { return }
+        parse(text)
+    }
 
+    private func parse(_ content: String) {
         parseGeneration &+= 1
         let generation = parseGeneration
-        let previousContentSnapshot = previousContent
+        let previous = previousContent
         previousContent = content
         currentContent = content
-        results = []
-        lastUpdated = Date()
-
-        guard ParserEngine.canParse(content) else {
-            appendTextHistory(content, results: [])
-            return
-        }
-
-        let engine = engine
-        let enabledParserNames = preferences.enabledParserNames(from: engine.parserNames)
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let parsed = engine.parseAll(
-                content,
-                previousContent: previousContentSnapshot,
-                enabledParserNames: enabledParserNames
-            )
-            await self?.finishParsing(content, results: parsed, generation: generation)
-        }
-    }
-
-    private func finishParsing(_ content: String, results parsed: [ParseResult], generation: UInt64) {
-        if generation == parseGeneration {
-            results = parsed
-            if !parsed.isEmpty {
-                onNewResults?(content, parsed)
+        reloadParsersIfConfigChanged()
+        let updates = engine.results(
+            for: content,
+            previousContent: previous,
+            enabledParserNames: preferences.enabledParserNames(from: engine.parserNames)
+        )
+        let retentionDays = preferences.historyRetentionDays
+        Task {
+            var historyID: UInt64?
+            for await results in updates {
+                if generation == parseGeneration, !results.isEmpty {
+                    onResults?(generation, content, results)
+                }
+                if let historyID {
+                    await HistoryStore.shared.setResults(id: historyID, results: results)
+                } else {
+                    historyID = await HistoryStore.shared.append(original: content, results: results, retentionDays: retentionDays)
+                }
+                refreshHistory()
             }
         }
-        appendTextHistory(content, results: parsed)
     }
 
-    private func appendTextHistory(_ content: String, results: [ParseResult]) {
-        Task {
-            await HistoryStore.shared.append(original: content, results: results, retentionDays: preferences.historyRetentionDays)
-            refreshHistory()
+    /// Office and iWork put a picture of copied cells or text next to the text, so text wins.
+    /// A browser's copied image comes with its address, so a lone link the source lists after
+    /// the image does not.
+    private func prefersImage(over text: String?, in pasteboard: NSPasteboard) -> Bool {
+        guard let text else { return true }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isWhitespace),
+              let scheme = URL(string: trimmed)?.scheme?.lowercased(),
+              ["http", "https", "file", "data", "blob"].contains(scheme)
+        else { return false }
+        for type in pasteboard.pasteboardItems?.first?.types ?? [] {
+            guard let uti = UTType(type.rawValue) else { continue }
+            if uti.conforms(to: .plainText) { return false }
+            if uti.conforms(to: .image) { return true }
         }
+        return false
+    }
+
+    /// The image as the source app wrote it; formats only NSImage reads, such as PDF, as TIFF.
+    private func pasteboardImageData(_ pasteboard: NSPasteboard) -> Data? {
+        let types: [NSPasteboard.PasteboardType] = [
+            .png,
+            NSPasteboard.PasteboardType(UTType.jpeg.identifier),
+            NSPasteboard.PasteboardType(UTType.heic.identifier),
+            .tiff,
+        ]
+        if let type = pasteboard.availableType(from: types), let data = pasteboard.data(forType: type) {
+            return data
+        }
+        return NSImage(pasteboard: pasteboard)?.tiffRepresentation
     }
 
     private func pasteboardFileURLs(_ pasteboard: NSPasteboard) -> [URL] {
@@ -181,94 +240,83 @@ final class ClipboardModel: ObservableObject {
         return pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
     }
 
-    private func appendFileHistory(_ url: URL) {
-        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey, .isRegularFileKey])
+    /// Decoding and encoding a large image takes a noticeable fraction of a second, so it runs
+    /// off the main thread.
+    private func appendImageHistory(_ data: Data) {
+        parseGeneration &+= 1
+        currentContent = ""
+        let directory = HistoryStore.shared.assetsDirectory
+        let retentionDays = preferences.historyRetentionDays
+        Task.detached(priority: .utility) { [weak self] in
+            guard let image = HistoryImage.save(data, in: directory) else { return }
+            await HistoryStore.shared.append(
+                kind: .image,
+                originalPreview: "Image \(image.pixelWidth) x \(image.pixelHeight)",
+                attachment: HistoryAttachment(
+                    previewKind: .image,
+                    assetPath: image.previewPath,
+                    originalAssetPath: image.originalPath,
+                    fileType: "Image",
+                    imageWidth: image.pixelWidth,
+                    imageHeight: image.pixelHeight
+                ),
+                retentionDays: retentionDays
+            )
+            await self?.refreshHistory()
+        }
+    }
+
+    private func appendFileHistory(_ urls: [URL]) {
+        parseGeneration &+= 1
+        currentContent = ""
+        let directory = HistoryStore.shared.assetsDirectory
+        let retentionDays = preferences.historyRetentionDays
+        Task.detached(priority: .utility) { [weak self] in
+            for url in urls {
+                await HistoryStore.shared.append(
+                    kind: .file,
+                    originalPreview: "\(url.lastPathComponent)\n\(url.path)",
+                    attachment: Self.fileAttachment(url, previewsIn: directory),
+                    retentionDays: retentionDays
+                )
+            }
+            await self?.refreshHistory()
+        }
+    }
+
+    private nonisolated static func fileAttachment(_ url: URL, previewsIn directory: URL) -> HistoryAttachment {
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey])
         let fileSize = Int64(values?.fileSize ?? 0)
         let type = values?.contentType ?? UTType(filenameExtension: url.pathExtension)
         let typeName = type?.localizedDescription ?? type?.identifier ?? url.pathExtension
         let fileName = url.lastPathComponent
-        let preview = "\(fileName)\n\(url.path)"
 
-        if let type, type.conforms(to: .image), let image = NSImage(contentsOf: url) {
-            let assetPath = saveImagePreview(image)
-            let attachment = HistoryAttachment(
-                previewKind: assetPath == nil ? .none : .image,
-                assetPath: assetPath,
+        if let type, type.conforms(to: .image), let image = HistoryImage.preview(ofFile: url, in: directory) {
+            return HistoryAttachment(
+                previewKind: .image,
+                assetPath: image.previewPath,
                 filePath: url.path,
                 fileName: fileName,
                 fileType: typeName,
                 fileSize: fileSize,
-                imageWidth: Int(image.size.width),
-                imageHeight: Int(image.size.height),
-                textPreview: nil
+                imageWidth: image.pixelWidth,
+                imageHeight: image.pixelHeight
             )
-            appendAttachment(kind: .file, preview: preview, attachment: attachment)
-            return
         }
-
         if isTextPreviewable(type: type), let textPreview = readTextPreview(url) {
-            let attachment = HistoryAttachment(
+            return HistoryAttachment(
                 previewKind: .text,
-                assetPath: nil,
                 filePath: url.path,
                 fileName: fileName,
                 fileType: typeName,
                 fileSize: fileSize,
-                imageWidth: nil,
-                imageHeight: nil,
                 textPreview: textPreview
             )
-            appendAttachment(kind: .file, preview: preview, attachment: attachment)
-            return
         }
-
-        let attachment = HistoryAttachment(
-            previewKind: .none,
-            assetPath: nil,
-            filePath: url.path,
-            fileName: fileName,
-            fileType: typeName,
-            fileSize: fileSize,
-            imageWidth: nil,
-            imageHeight: nil,
-            textPreview: nil
-        )
-        appendAttachment(kind: .file, preview: preview, attachment: attachment)
+        return HistoryAttachment(previewKind: .none, filePath: url.path, fileName: fileName, fileType: typeName, fileSize: fileSize)
     }
 
-    private func appendImageHistory(_ image: NSImage) {
-        let assetPath = saveImagePreview(image)
-        let preview = "Image \(Int(image.size.width)) x \(Int(image.size.height))"
-        let attachment = HistoryAttachment(
-            previewKind: assetPath == nil ? .none : .image,
-            assetPath: assetPath,
-            filePath: nil,
-            fileName: nil,
-            fileType: "Image",
-            fileSize: nil,
-            imageWidth: Int(image.size.width),
-            imageHeight: Int(image.size.height),
-            textPreview: nil
-        )
-        appendAttachment(kind: .image, preview: preview, attachment: attachment)
-    }
-
-    private func appendAttachment(kind: HistoryContentKind, preview: String, attachment: HistoryAttachment) {
-        currentContent = preview
-        results = []
-        lastUpdated = Date()
-        Task {
-            await HistoryStore.shared.append(
-                kind: kind,
-                originalPreview: preview,
-                attachment: attachment,
-                retentionDays: preferences.historyRetentionDays
-            )
-            refreshHistory()
-        }
-    }
-
-    private func isTextPreviewable(type: UTType?) -> Bool {
+    private nonisolated static func isTextPreviewable(type: UTType?) -> Bool {
         guard let type else { return false }
         return type.conforms(to: .text)
             || type.conforms(to: .json)
@@ -277,44 +325,12 @@ final class ClipboardModel: ObservableObject {
             || type.identifier == "net.daringfireball.markdown"
     }
 
-    private func readTextPreview(_ url: URL) -> String? {
+    private nonisolated static func readTextPreview(_ url: URL) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         guard let data = try? handle.read(upToCount: filePreviewLimit), !data.isEmpty else { return nil }
         return String(data: data, encoding: .utf8)
             ?? String(data: data, encoding: .utf16)
             ?? String(data: data, encoding: .isoLatin1)
-    }
-
-    private func saveImagePreview(_ image: NSImage) -> String? {
-        let directory = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/share/mcga/history-assets")
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-
-        let originalSize = image.size
-        let maxDimension = max(originalSize.width, originalSize.height)
-        let scale = maxDimension > imagePreviewMaxSide ? imagePreviewMaxSide / maxDimension : 1
-        let targetSize = NSSize(
-            width: max(1, originalSize.width * scale),
-            height: max(1, originalSize.height * scale)
-        )
-        let thumbnail = NSImage(size: targetSize)
-        thumbnail.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1)
-        thumbnail.unlockFocus()
-
-        guard let tiff = thumbnail.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else {
-            return nil
-        }
-
-        let url = directory.appendingPathComponent("\(UUID().uuidString).png")
-        do {
-            try png.write(to: url, options: [.atomic])
-            return url.path
-        } catch {
-            return nil
-        }
     }
 }

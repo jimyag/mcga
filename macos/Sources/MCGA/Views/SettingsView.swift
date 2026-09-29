@@ -114,6 +114,20 @@ struct GeneralSettingsView: View {
                 }
             }
 
+            Section(preferences.text(.overlay)) {
+                Toggle(preferences.text(.showOverlay), isOn: $preferences.overlayEnabled)
+
+                Stepper(value: $preferences.overlaySeconds, in: 2...30) {
+                    HStack {
+                        Text(preferences.text(.overlayDuration))
+                        Spacer()
+                        Text(String(format: preferences.text(.secondsValue), preferences.overlaySeconds))
+                            .foregroundStyle(Color.mutedText)
+                    }
+                }
+                .disabled(!preferences.overlayEnabled)
+            }
+
             Section(preferences.text(.shortcut)) {
                 Toggle(preferences.text(.historyShortcutEnabled), isOn: $preferences.historyShortcutEnabled)
 
@@ -190,6 +204,11 @@ struct ParserSettingsView: View {
             .padding(.horizontal, 18)
             .padding(.top, 14)
 
+            if !model.customParserIssues.isEmpty {
+                customParserIssues
+                    .padding(.horizontal, 18)
+            }
+
             if groups.isEmpty {
                 ContentUnavailableView(preferences.text(.noMatchingParsers), systemImage: "magnifyingglass")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -207,6 +226,44 @@ struct ParserSettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.primary.opacity(0.03))
+    }
+
+    /// Shown above the list: a config that fails to load has no custom group to show them in.
+    private var customParserIssues: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(preferences.text(.customParserIssues), systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.warningText)
+            ForEach(Array(model.customParserIssues.enumerated()), id: \.offset) { _, issue in
+                Text(issue)
+                    .font(.system(size: 12))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            customParserConfigLink
+                .foregroundStyle(Color.mutedText)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.orange.opacity(0.1))
+        )
+    }
+
+    private var customParserConfigLink: some View {
+        HStack(spacing: 8) {
+            Text((ParserEngine.customParserConfigURL.path as NSString).abbreviatingWithTildeInPath)
+                .font(.system(size: 11.5, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([ParserEngine.customParserConfigURL])
+            } label: {
+                Label(preferences.text(.showInFinder), systemImage: "folder")
+            }
+            .controlSize(.small)
+        }
     }
 
     private struct ParserGroup {
@@ -243,16 +300,7 @@ struct ParserSettingsView: View {
                     .fixedSize()
                 Spacer(minLength: 8)
                 if group.category == .custom {
-                    Text((ParserEngine.customParserConfigURL.path as NSString).abbreviatingWithTildeInPath)
-                        .font(.system(size: 11.5, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button {
-                        NSWorkspace.shared.activateFileViewerSelecting([ParserEngine.customParserConfigURL])
-                    } label: {
-                        Label(preferences.text(.showInFinder), systemImage: "folder")
-                    }
-                    .controlSize(.small)
+                    customParserConfigLink
                 }
             }
             .foregroundStyle(Color.mutedText)
@@ -310,6 +358,7 @@ struct ParserSettingsView: View {
                 }
             }
             Spacer(minLength: 0)
+            overlayButton(info)
             Toggle(isOn: Binding(
                 get: { preferences.isParserEnabled(info.name) },
                 set: { preferences.setParser(info.name, enabled: $0) }
@@ -322,6 +371,21 @@ struct ParserSettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    /// Whether this parser's results show the overlay or only go to history.
+    private func overlayButton(_ info: ParserInfo) -> some View {
+        let silent = preferences.isParserSilent(info.name)
+        let enabled = preferences.isParserEnabled(info.name) && preferences.overlayEnabled
+        return Button {
+            preferences.setParser(info.name, silent: !silent)
+        } label: {
+            Image(systemName: silent ? "bell.slash" : "bell")
+        }
+        .buttonStyle(InteractiveIconButtonStyle())
+        .help(preferences.text(silent ? .historyOnlyHelp : .showsOverlayHelp))
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
     }
 
     private func description(for info: ParserInfo) -> String {
