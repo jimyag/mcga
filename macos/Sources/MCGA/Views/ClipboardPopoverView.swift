@@ -9,6 +9,8 @@ struct ClipboardPopoverView: View {
     let checkForUpdates: () -> Void
     let close: () -> Void
     let paste: (ClipboardPayload) -> Void
+    /// Opens an image in the viewer window; the URL is the file "Open in Preview" hands over.
+    let showImage: (NSImage, URL) -> Void
     @State private var searchText = ""
     @State private var selectedHistoryID: UInt64?
     @State private var focusedPane: HistoryFocusPane = .original
@@ -23,15 +25,9 @@ struct ClipboardPopoverView: View {
             Divider()
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            Divider()
-            footer
         }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
-        )
+        // The panel's visual effect view draws the translucent background behind this view.
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .background(HistoryKeyboardCaptureView { handleHistoryKeyAction($0) })
         .overlay(alignment: .top) {
             if let notice = model.copyNotice {
@@ -43,7 +39,7 @@ struct ClipboardPopoverView: View {
                     .background(.regularMaterial, in: Capsule())
                     .overlay(Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                    .padding(.top, 60)
+                    .padding(.top, 64)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -62,14 +58,15 @@ struct ClipboardPopoverView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16))
                     .foregroundStyle(Color.mutedText)
                 HistorySearchField(
                     text: $searchText,
                     placeholder: preferences.text(.searchHistory)
                 )
-                .frame(height: 22)
+                .frame(height: 24)
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -81,9 +78,8 @@ struct ClipboardPopoverView: View {
                     .help(preferences.text(.close))
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.leading, 6)
             .frame(height: 32)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
 
             if let version = model.availableUpdateVersion {
                 Button {
@@ -112,8 +108,7 @@ struct ClipboardPopoverView: View {
             .help(preferences.text(.openSettings))
         }
         .padding(.horizontal, 12)
-        .frame(height: 52)
-        .background(Color.primary.opacity(0.03))
+        .frame(height: 56)
     }
 
     private var monitoringButton: some View {
@@ -184,6 +179,11 @@ struct ClipboardPopoverView: View {
                 Divider()
                 detailPane
             }
+            .overlay(alignment: .bottomTrailing) {
+                actions
+                    .frame(maxWidth: 400, alignment: .trailing)
+                    .padding(14)
+            }
         }
     }
 
@@ -232,8 +232,15 @@ struct ClipboardPopoverView: View {
                     }
                 }
             }
+
+            // Below the list rather than over it: scrolling to a selected row only makes it
+            // visible within the scroll view, so a floating overlay could cover it.
+            keyHints
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+                .padding(.bottom, 14)
         }
-        .background(Color.primary.opacity(0.03))
     }
 
     private func historyRow(_ entry: HistoryEntry) -> some View {
@@ -245,29 +252,28 @@ struct ClipboardPopoverView: View {
             selectedResultIndex = 0
         } label: {
             HStack(spacing: 10) {
-                GlyphBadge(symbol: symbolName(for: entry), onAccent: isActive)
+                GlyphBadge(symbol: symbolName(for: entry))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(rowTitle(entry))
-                        .font(.system(size: 12.5, design: .monospaced))
-                        .foregroundStyle(isActive ? Color.white : Color.primary)
+                        .font(.system(size: 13.5))
                         .lineLimit(1)
                     HStack(spacing: 4) {
                         if entry.originalContentTruncated == true {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(isActive ? Color.white : Color.warningText)
+                                .foregroundStyle(Color.warningText)
                         }
                         Text(rowSubtitle(entry))
                             .lineLimit(1)
                     }
                     .font(.system(size: 11.5))
-                    .foregroundStyle(isActive ? Color.white.opacity(0.92) : Color.mutedText)
+                    .foregroundStyle(Color.mutedText)
                 }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
             .frame(height: 50)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(rowBackground(isSelected: isSelected, isActive: isActive))
             )
             .contentShape(Rectangle())
@@ -275,12 +281,13 @@ struct ClipboardPopoverView: View {
         .buttonStyle(.plain)
     }
 
+    /// A light accent tint marks the pane that Return acts on; gray keeps the row found when it doesn't.
     private func rowBackground(isSelected: Bool, isActive: Bool) -> Color {
         if isActive {
-            return Color(nsColor: .selectedContentBackgroundColor)
+            return Color.accentColor.opacity(0.18)
         }
         if isSelected {
-            return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+            return Color.primary.opacity(0.08)
         }
         return .clear
     }
@@ -296,7 +303,9 @@ struct ClipboardPopoverView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 18)
+                .padding(.top, 18)
+                // Room to scroll the last result above the floating actions.
+                .padding(.bottom, 64)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             // A new entry starts at its top instead of the previous entry's scroll offset.
@@ -351,9 +360,6 @@ struct ClipboardPopoverView: View {
             .lineLimit(isShort ? 2 : 14)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
     }
 
     private func attachmentPreview(_ attachment: HistoryAttachment) -> some View {
@@ -380,6 +386,16 @@ struct ClipboardPopoverView: View {
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: 320)
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            // History keeps a 900 px preview; a copied file still has its original.
+                            if let filePath = attachment.filePath, let original = NSImage(contentsOfFile: filePath) {
+                                showImage(original, URL(fileURLWithPath: filePath))
+                            } else {
+                                showImage(image, URL(fileURLWithPath: path))
+                            }
+                        }
+                        .help(preferences.text(.clickToEnlarge))
                 } else {
                     Text(preferences.text(.previewUnavailable))
                         .font(.system(size: 12.5))
@@ -397,9 +413,7 @@ struct ClipboardPopoverView: View {
                     .foregroundStyle(Color.mutedText)
             }
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
     }
 
     private func resultsSection(_ entry: HistoryEntry) -> some View {
@@ -457,15 +471,9 @@ struct ClipboardPopoverView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, isPrimary ? 14 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.025)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(isFocused ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: 1)
-        )
-        .overlay(
+        .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.accentColor.opacity(isFocused ? 0.28 : 0), lineWidth: 3)
-                .padding(-2.5)
+                .fill(isFocused ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.045))
         )
         .contentShape(Rectangle())
         .onTapGesture {
@@ -474,18 +482,20 @@ struct ClipboardPopoverView: View {
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: 14) {
+    /// Esc needs no hint; the arrows are the part of the keyboard model nothing else shows.
+    private var keyHints: some View {
+        HStack(spacing: 10) {
             keyHint(["↑", "↓"], preferences.text(.selectHint))
             keyHint(["←", "→"], preferences.text(.switchPaneHint))
-            keyHint(["esc"], preferences.text(.close))
-            Spacer(minLength: 8)
-            Button {
-                handleHistoryKeyAction(.copy)
-            } label: {
-                keyHint(["⌘", "↩"], preferences.text(focusedPane == .original ? .copyOriginal : .copyResult))
-            }
-            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 34)
+        .background(Capsule().fill(.regularMaterial))
+        .overlay(Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+    }
+
+    private var actions: some View {
+        HStack(spacing: 0) {
             Button {
                 handleHistoryKeyAction(.paste)
             } label: {
@@ -493,24 +503,40 @@ struct ClipboardPopoverView: View {
                     Text(pasteLabel)
                         .font(.system(size: 12.5, weight: .semibold))
                         .lineLimit(1)
-                    KeyCap(key: "↩", onAccent: true)
+                    KeyCap(key: "↩")
                 }
-                .foregroundStyle(Color.white)
-                .padding(.leading, 12)
-                .padding(.trailing, 6)
-                .frame(height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color(nsColor: .selectedContentBackgroundColor))
-                )
+                .padding(.leading, 14)
+                .padding(.trailing, 10)
+                .frame(height: 34)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            Divider()
+                .frame(height: 16)
+            Button {
+                handleHistoryKeyAction(.copy)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(preferences.text(focusedPane == .original ? .copyOriginal : .copyResult))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Color.mutedText)
+                        .lineLimit(1)
+                        .padding(.trailing, 2)
+                    KeyCap(key: "⌘")
+                    KeyCap(key: "↩")
+                }
+                .padding(.leading, 10)
+                .padding(.trailing, 12)
+                .frame(height: 34)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
         }
+        .background(Capsule().fill(.regularMaterial))
+        .overlay(Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
         .disabled(selectedHistoryEntry == nil)
-        .padding(.leading, 16)
-        .padding(.trailing, 10)
-        .frame(height: 40)
-        .background(Color.primary.opacity(0.03))
     }
 
     private func keyHint(_ keys: [String], _ label: String) -> some View {
@@ -519,7 +545,7 @@ struct ClipboardPopoverView: View {
                 KeyCap(key: key)
             }
             Text(label)
-                .font(.system(size: 12))
+                .font(.system(size: 11.5))
                 .foregroundStyle(Color.mutedText)
                 .lineLimit(1)
                 .padding(.leading, 2)
@@ -818,7 +844,7 @@ struct HistorySearchField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.font = .systemFont(ofSize: 14)
+        field.font = .systemFont(ofSize: 17)
         focus(field)
         return field
     }

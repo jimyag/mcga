@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var historyWindow: NSWindow?
     private var settingsWindow: NSWindow?
+    private var imageViewerWindow: NSWindow?
     private var appBeforeHistoryBundleIdentifier: String?
     private var appBeforeHistoryProcessIdentifier: pid_t?
     private var lastExternalAppBundleIdentifier: String?
@@ -126,25 +127,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rememberFrontmostAppBeforeHistory()
         if let historyWindow {
             historyWindow.center()
-            showNonActivatingHistoryWindow(historyWindow)
+            showNonActivating(historyWindow)
             return
         }
 
         model.refreshHistory()
-        let window = makeHistoryPanel(
-            title: preferences.text(.history),
-            size: NSSize(width: 720, height: 680)
-        )
-        window.contentView = NSHostingView(rootView: ClipboardPopoverView(
+        let size = NSSize(width: 720, height: 680)
+        let window = makeHistoryPanel(title: preferences.text(.history), size: size)
+        let hostingView = NSHostingView(rootView: ClipboardPopoverView(
             model: model,
             preferences: preferences,
             openSettings: { [weak self] in self?.openSettingsWindow() },
             checkForUpdates: { [weak self] in self?.checkForUpdates(closing: self?.historyWindow) },
             close: { [weak self] in self?.historyWindow?.close() },
-            paste: { [weak self] payload in self?.pasteToPreviousApp(payload) }
+            paste: { [weak self] payload in self?.pasteToPreviousApp(payload) },
+            showImage: { [weak self] image, url in self?.showImageViewer(image, url: url) }
         ))
+        window.contentView = translucentContent(hostingView, size: size, cornerRadius: 16)
+        window.invalidateShadow()
         historyWindow = window
-        showNonActivatingHistoryWindow(window)
+        showNonActivating(window)
+    }
+
+    /// Opens at the image's own size where the screen allows, never smaller than the history
+    /// panel. It floats and stays until closed, so the image can be read while typing elsewhere;
+    /// the history panel closes on its own once the viewer takes key status.
+    private func showImageViewer(_ image: NSImage, url: URL) {
+        imageViewerWindow?.close()
+        guard let screen = historyWindow?.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        // Title bar, margins and the zoom controls around the image.
+        let chrome = NSSize(width: 32, height: 110)
+        let size = NSSize(
+            width: min(max(image.size.width + chrome.width, 760), visible.width * 0.9),
+            height: min(max(image.size.height + chrome.height, 720), visible.height * 0.9)
+        )
+        let window = ImageViewerPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = url.lastPathComponent
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.isFloatingPanel = true
+        window.level = .floating
+        window.hidesOnDeactivate = false
+        window.minSize = NSSize(width: 480, height: 360)
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.delegate = self
+        window.contentView = NSHostingView(rootView: ImageViewerView(
+            image: image,
+            url: url,
+            preferences: preferences,
+            close: { [weak self] in self?.imageViewerWindow?.close() }
+        ))
+        imageViewerWindow = window
+        showNonActivating(window)
     }
 
     /// Sparkle's windows sit at the normal level, so a floating panel in front would hide them.
@@ -324,6 +364,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return window
     }
 
+    /// Behind-window vibrancy with rounded corners. The mask shapes the blur and the window
+    /// shadow; the SwiftUI content clips itself to the same radius.
+    private func translucentContent(_ content: NSView, size: NSSize, cornerRadius: CGFloat) -> NSView {
+        let effect = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
+        effect.material = .popover
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        let edge = cornerRadius * 2 + 1
+        let mask = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
+            return true
+        }
+        mask.capInsets = NSEdgeInsets(top: cornerRadius, left: cornerRadius, bottom: cornerRadius, right: cornerRadius)
+        mask.resizingMode = .stretch
+        effect.maskImage = mask
+        content.frame = effect.bounds
+        content.autoresizingMask = [.width, .height]
+        effect.addSubview(content)
+        return effect
+    }
+
     private func makeSettingsPanel(title: String, size: NSSize) -> NSPanel {
         let window = CenteredPanel(
             contentRect: NSRect(origin: .zero, size: size),
@@ -345,7 +407,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func showNonActivatingHistoryWindow(_ window: NSWindow) {
+    private func showNonActivating(_ window: NSWindow) {
         window.center()
         window.orderFrontRegardless()
         window.makeKey()
@@ -364,6 +426,11 @@ final class CenteredPanel: NSPanel {
 }
 
 final class NonActivatingHistoryPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+final class ImageViewerPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
@@ -406,6 +473,9 @@ extension AppDelegate: NSWindowDelegate {
         }
         if window === settingsWindow {
             settingsWindow = nil
+        }
+        if window === imageViewerWindow {
+            imageViewerWindow = nil
         }
     }
 }

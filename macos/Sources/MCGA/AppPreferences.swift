@@ -570,6 +570,12 @@ enum TextKey {
     case updateAvailable
     case automaticallyCheckForUpdates
     case currentVersion
+    case clickToEnlarge
+    case zoomIn
+    case zoomOut
+    case actualSize
+    case zoomToFit
+    case openInPreview
 
     func value(_ language: AppLanguage) -> String {
         switch (language, self) {
@@ -741,6 +747,18 @@ enum TextKey {
         case (.en, .automaticallyCheckForUpdates): "Check for updates automatically"
         case (.zh, .currentVersion): "当前版本 %@"
         case (.en, .currentVersion): "Version %@"
+        case (.zh, .clickToEnlarge): "点击放大"
+        case (.en, .clickToEnlarge): "Click to enlarge"
+        case (.zh, .zoomIn): "放大 ⌘="
+        case (.en, .zoomIn): "Zoom In ⌘="
+        case (.zh, .zoomOut): "缩小 ⌘-"
+        case (.en, .zoomOut): "Zoom Out ⌘-"
+        case (.zh, .actualSize): "实际大小 ⌘0"
+        case (.en, .actualSize): "Actual Size ⌘0"
+        case (.zh, .zoomToFit): "适合窗口 ⌘9"
+        case (.en, .zoomToFit): "Zoom to Fit ⌘9"
+        case (.zh, .openInPreview): "在预览中打开"
+        case (.en, .openInPreview): "Open in Preview"
         }
     }
 }

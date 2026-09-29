@@ -105,16 +105,15 @@ struct InteractiveIconButtonStyle: ButtonStyle {
 struct GlyphBadge: View {
     let symbol: String
     var size: CGFloat = 26
-    var onAccent = false
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.46, weight: .medium))
-            .foregroundStyle(onAccent ? Color.white : Color.mutedText)
+            .foregroundStyle(Color.mutedText)
             .frame(width: size, height: size)
             .background(
                 RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-                    .fill(onAccent ? Color.white.opacity(0.2) : Color.primary.opacity(0.06))
+                    .fill(Color.primary.opacity(0.06))
             )
             .accessibilityHidden(true)
     }
@@ -137,21 +136,20 @@ struct ParserBadge: View {
 
 struct KeyCap: View {
     let key: String
-    var onAccent = false
 
     var body: some View {
         Text(key)
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(onAccent ? Color.white : Color.mutedText)
+            .foregroundStyle(Color.mutedText)
             .padding(.horizontal, 4)
             .frame(minWidth: 18, minHeight: 18)
             .background(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(onAccent ? Color.white.opacity(0.22) : Color(nsColor: .controlBackgroundColor))
+                    .fill(Color(nsColor: .controlBackgroundColor))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(onAccent ? Color.clear : Color(nsColor: .separatorColor), lineWidth: 0.5)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
             )
     }
 }
