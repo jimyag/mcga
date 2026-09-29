@@ -85,6 +85,23 @@ await historyStore.append(original: "third clipboard text", results: [])
 let reorderedEntries = await historyStore.allRecent()
 expect(reorderedEntries.first?.originalContent == "third clipboard text", "new entry after promoted history")
 expect(Set(reorderedEntries.map(\.id)).count == reorderedEntries.count, "history ids stay unique after promotion")
+
+let assetsDirectory = historyDirectory.appendingPathComponent("assets")
+try? FileManager.default.createDirectory(at: assetsDirectory, withIntermediateDirectories: true)
+func imageAttachment(_ name: String) -> HistoryAttachment {
+    let url = assetsDirectory.appendingPathComponent(name)
+    try? Data([0x89, 0x50, 0x4E, 0x47]).write(to: url)
+    return HistoryAttachment(previewKind: .image, assetPath: url.path, imageWidth: 1, imageHeight: 1)
+}
+await historyStore.append(kind: .image, originalPreview: "Image 1 x 1", attachment: imageAttachment("first.png"))
+await historyStore.append(kind: .image, originalPreview: "Image 1 x 1", attachment: imageAttachment("rewrite.png"))
+let rewrittenImages = await historyStore.allRecent().filter { $0.contentKind == .image }
+expect(rewrittenImages.count == 1, "a rewritten unchanged clipboard image is recorded once")
+expect(!FileManager.default.fileExists(atPath: assetsDirectory.appendingPathComponent("rewrite.png").path), "the duplicate image asset is removed")
+await historyStore.append(original: "copied in between", results: [])
+await historyStore.append(kind: .image, originalPreview: "Image 1 x 1", attachment: imageAttachment("again.png"))
+let recopiedImages = await historyStore.allRecent().filter { $0.contentKind == .image }
+expect(recopiedImages.count == 2, "the same image copied again after other content is recorded")
 try? FileManager.default.removeItem(at: historyDirectory)
 
 let categories = engine.parserCategories

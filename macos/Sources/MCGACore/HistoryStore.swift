@@ -135,6 +135,11 @@ public actor HistoryStore {
     public func append(kind: HistoryContentKind, originalPreview: String, attachment: HistoryAttachment, retentionDays: Int = 0) {
         var entries = (try? loadAll()) ?? []
         _ = repairDuplicateIDs(&entries)
+        // Snipaste and other Qt apps rewrite an unchanged clipboard image, which is not a new copy.
+        if let latest = entries.last, latest.contentKind == kind, hasSameAsset(latest.attachment, attachment) {
+            removeOrphanedAssets(referencedBy: entries)
+            return
+        }
         let nextID = nextHistoryID(after: entries)
         entries.append(HistoryEntry(
             id: nextID,
@@ -194,6 +199,15 @@ public actor HistoryStore {
             save(entries, retentionDays: 0)
         }
         return entries
+    }
+
+    private func hasSameAsset(_ stored: HistoryAttachment?, _ new: HistoryAttachment) -> Bool {
+        guard let stored, stored.filePath == new.filePath,
+              let storedPath = stored.assetPath, let newPath = new.assetPath,
+              let storedData = FileManager.default.contents(atPath: storedPath),
+              let newData = FileManager.default.contents(atPath: newPath)
+        else { return false }
+        return storedData == newData
     }
 
     private func nextHistoryID(after entries: [HistoryEntry]) -> UInt64 {
