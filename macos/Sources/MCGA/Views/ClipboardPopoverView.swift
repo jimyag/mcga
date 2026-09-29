@@ -15,31 +15,34 @@ struct ClipboardPopoverView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
-            VStack(alignment: .leading, spacing: 12) {
-                searchField
-                historyView
+            header
+            if model.isPaused {
+                pausedBanner
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Divider()
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Divider()
+            footer
         }
-        .frame(minWidth: 420, minHeight: 520)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        )
         .background(HistoryKeyboardCaptureView { handleHistoryKeyAction($0) })
         .overlay(alignment: .top) {
             if let notice = model.copyNotice {
                 Label(notice, systemImage: "checkmark.circle.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.accentText)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(.regularMaterial, in: Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color(nsColor: .separatorColor).opacity(0.4), lineWidth: 0.5)
-                    )
+                    .overlay(Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                    .padding(.top, 46)
+                    .padding(.top, 60)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -56,79 +59,124 @@ struct ClipboardPopoverView: View {
         .preferredColorScheme(preferences.theme.colorScheme)
     }
 
-    private var toolbar: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor)
-            Text("MCGA")
-                .font(.headline)
-            Spacer()
-            Button {
-                model.togglePaused()
-            } label: {
-                Image(systemName: model.isPaused ? "play.fill" : "pause.fill")
+    private var header: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Color.mutedText)
+                HistorySearchField(
+                    text: $searchText,
+                    placeholder: preferences.text(.searchHistory)
+                )
+                .frame(height: 22)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.mutedText)
+                    .help(preferences.text(.close))
+                }
             }
-            .help(model.isPaused ? preferences.text(.resume) : preferences.text(.pause))
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
 
-            Button {
-                model.refreshHistory()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .help(preferences.text(.refreshHistory))
+            monitoringButton
 
             Button {
                 openSettings()
             } label: {
                 Image(systemName: "gearshape")
             }
+            .buttonStyle(InteractiveIconButtonStyle())
             .keyboardShortcut(",", modifiers: .command)
             .help(preferences.text(.openSettings))
-
-            Button {
-                close()
-            } label: {
-                Image(systemName: "xmark")
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-            .help(preferences.text(.close))
         }
-        .buttonStyle(InteractiveIconButtonStyle())
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .frame(height: 52)
+        .background(Color.primary.opacity(0.03))
     }
 
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            HistorySearchField(
-                text: $searchText,
-                placeholder: preferences.text(.searchHistory)
-            )
-            .frame(height: 22)
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
+    private var monitoringButton: some View {
+        Button {
+            model.togglePaused()
+        } label: {
+            HStack(spacing: 6) {
+                if model.isPaused {
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 9, weight: .bold))
+                } else {
+                    Circle()
+                        .fill(Color(nsColor: .systemGreen))
+                        .frame(width: 7, height: 7)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help(preferences.text(.close))
+                Text(preferences.text(model.isPaused ? .paused : .monitoring))
             }
+            .font(.system(size: 12, weight: model.isPaused ? .semibold : .regular))
+            .foregroundStyle(model.isPaused ? Color.warningText : Color.mutedText)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(Capsule().fill(model.isPaused ? Color.orange.opacity(0.14) : Color.clear))
+            .overlay(
+                Capsule().strokeBorder(
+                    model.isPaused ? Color.orange.opacity(0.4) : Color(nsColor: .separatorColor),
+                    lineWidth: 1
+                )
+            )
+            .contentShape(Capsule())
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .buttonStyle(.plain)
+        .help(preferences.text(model.isPaused ? .resume : .pause))
     }
 
-    private var historyView: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var pausedBanner: some View {
+        HStack(spacing: 10) {
+            Text(preferences.text(.pausedBanner))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.warningText)
+            Spacer(minLength: 8)
+            Button(preferences.text(.resume)) {
+                model.togglePaused()
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 36)
+        .background(Color.orange.opacity(0.12))
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        let entries = filteredHistory
+        if model.history.isEmpty {
+            ContentUnavailableView {
+                Label(preferences.text(.noHistory), systemImage: "tray")
+            } description: {
+                Text(preferences.text(.emptyHint))
+            }
+        } else if entries.isEmpty {
+            ContentUnavailableView {
+                Label(preferences.text(.noSearchResults), systemImage: "magnifyingglass")
+            }
+        } else {
+            HStack(spacing: 0) {
+                historyList(entries)
+                    .frame(width: 292)
+                Divider()
+                detailPane
+            }
+        }
+    }
+
+    private func historyList(_ entries: [HistoryEntry]) -> some View {
+        VStack(spacing: 0) {
             HStack {
-                Text(preferences.text(.history))
-                    .font(.subheadline.weight(.semibold))
+                Text(String(format: preferences.text(.historyCount), entries.count))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.mutedText)
                 Spacer()
                 Button {
                     model.clearHistory()
@@ -139,235 +187,454 @@ struct ClipboardPopoverView: View {
                 .buttonStyle(InteractiveIconButtonStyle())
                 .help(preferences.text(.clearHistory))
             }
-            let entries = filteredHistory
-            if model.history.isEmpty {
-                ContentUnavailableView {
-                    Label(preferences.text(.noHistory), systemImage: "tray")
-                } description: {
-                    Text(preferences.text(.emptyHint))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if entries.isEmpty {
-                ContentUnavailableView {
-                    Label(preferences.text(.noSearchResults), systemImage: "magnifyingglass")
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text(preferences.text(.historyOriginal))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(focusedPane == .original ? Color.accentColor : Color.secondary)
-                            Spacer()
-                        }
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(entries) { entry in
-                                        historyOriginalRow(entry)
-                                            .id(entry.id)
-                                    }
-                                }
-                            }
-                            .onChange(of: selectedHistoryID) {
-                                if let selectedHistoryID {
-                                    proxy.scrollTo(selectedHistoryID, anchor: .center)
-                                }
+            .padding(.leading, 16)
+            .padding(.trailing, 10)
+            .frame(height: 38)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(dayGroups(entries)) { group in
+                            Text(group.title)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.mutedText)
+                                .padding(.horizontal, 10)
+                                .padding(.top, 6)
+                                .padding(.bottom, 4)
+                            ForEach(group.entries) { entry in
+                                historyRow(entry)
+                                    .id(entry.id)
                             }
                         }
                     }
-                    .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text(preferences.text(.historyParsed))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(focusedPane == .parsed ? Color.accentColor : Color.secondary)
-                            Spacer()
-                        }
-                        if let entry = selectedHistoryEntry {
-                            historyParsedPanel(entry)
-                        } else {
-                            Text(preferences.text(.selectHistoryEntry))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                        }
-                    }
-                    .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 8)
                 }
-                .frame(minHeight: 260, maxHeight: .infinity)
+                .onChange(of: selectedHistoryID) {
+                    if let selectedHistoryID {
+                        proxy.scrollTo(selectedHistoryID)
+                    }
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.primary.opacity(0.03))
     }
 
-    private func historyOriginalRow(_ entry: HistoryEntry) -> some View {
+    private func historyRow(_ entry: HistoryEntry) -> some View {
         let isSelected = selectedHistoryID == entry.id
+        let isActive = isSelected && focusedPane == .original
         return Button {
             selectedHistoryID = entry.id
             focusedPane = .original
             selectedResultIndex = 0
-            focusHistoryKeyboard()
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(entry.timestamp.formatted(date: .abbreviated, time: .standard))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(entry.originalPreview)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(4)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if entry.originalContentTruncated == true {
-                    Label(preferences.text(.historyOriginalTruncated), systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
+            HStack(spacing: 10) {
+                GlyphBadge(symbol: symbolName(for: entry), onAccent: isActive)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(rowTitle(entry))
+                        .font(.system(size: 12.5, design: .monospaced))
+                        .foregroundStyle(isActive ? Color.white : Color.primary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        if entry.originalContentTruncated == true {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(isActive ? Color.white : Color.warningText)
+                        }
+                        Text(rowSubtitle(entry))
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(isActive ? Color.white.opacity(0.92) : Color.mutedText)
                 }
-                Text(entry.summaryText)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor))
+                    .fill(rowBackground(isSelected: isSelected, isActive: isActive))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(
-                        isSelected
-                            ? Color.accentColor.opacity(0.4)
-                            : Color(nsColor: .separatorColor).opacity(0.7),
-                        lineWidth: 1
-                    )
-            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
-    private func historyParsedPanel(_ entry: HistoryEntry) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if entry.results.isEmpty {
-                attachmentPreview(entry)
-            } else {
-                ForEach(Array(entry.results.enumerated()), id: \.offset) { index, result in
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(result.parserName)
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.12), in: Capsule())
-                                .foregroundStyle(Color.accentColor)
-                            Spacer()
-                            Button {
-                                model.promoteHistoryEntry(id: entry.id)
-                                model.copy(result.parsed)
-                            } label: {
-                                Image(systemName: "doc.on.doc")
-                            }
-                            .buttonStyle(InteractiveIconButtonStyle())
-                            .help(preferences.text(.copyResult))
-                        }
-                        Text(result.parsed)
-                            .font(.system(.caption, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        if let details = result.details, details != result.parsed {
-                            Text(details)
-                                .font(.system(size: 10.5, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(focusedPane == .parsed && selectedResultIndex == index ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor).opacity(0.7))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(focusedPane == .parsed && selectedResultIndex == index ? Color.accentColor.opacity(0.4) : .clear, lineWidth: 1)
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedPane = .parsed
-                        selectedResultIndex = index
-                        focusHistoryKeyboard()
-                    }
-                }
-            }
+    private func rowBackground(isSelected: Bool, isActive: Bool) -> Color {
+        if isActive {
+            return Color(nsColor: .selectedContentBackgroundColor)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        if isSelected {
+            return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        }
+        return .clear
     }
 
     @ViewBuilder
-    private func attachmentPreview(_ entry: HistoryEntry) -> some View {
-        if let attachment = entry.attachment {
-            VStack(alignment: .leading, spacing: 8) {
-                attachmentMetadata(attachment)
-                switch attachment.previewKind {
-                case .image:
-                    if let path = attachment.assetPath, let image = NSImage(contentsOfFile: path) {
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: 360)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        Text(preferences.text(.previewUnavailable))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+    private var detailPane: some View {
+        if let entry = selectedHistoryEntry {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    originalSection(entry)
+                    if entry.attachment == nil {
+                        resultsSection(entry)
                     }
-                case .text:
-                    Text(attachment.textPreview ?? "")
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                case .none:
-                    Text(preferences.text(.noPreviewForBinary))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(10)
-            .interactiveCard()
+            // A new entry starts at its top instead of the previous entry's scroll offset.
+            .id(entry.id)
         } else {
-            Text(preferences.text(.noParsedResults))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(preferences.text(.selectHistoryEntry))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.mutedText)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    private func attachmentMetadata(_ attachment: HistoryAttachment) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let fileName = attachment.fileName {
-                Text(fileName)
-                    .font(.caption.weight(.semibold))
+    private func originalSection(_ entry: HistoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(preferences.text(.historyOriginal))
+                    .font(.system(size: 12, weight: .semibold))
+                Text(originalMeta(entry))
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button {
+                    copyPayload(originalPayload(entry), entry: entry)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(InteractiveIconButtonStyle())
+                .help(preferences.text(.copyOriginal))
             }
-            if let filePath = attachment.filePath {
-                Text(filePath)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+            .foregroundStyle(Color.mutedText)
+
+            if let attachment = entry.attachment {
+                attachmentPreview(attachment)
+            } else {
+                originalText(entry)
             }
-            Text(attachment.metadataText)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+
+            if entry.originalContentTruncated == true {
+                Label(preferences.text(.historyOriginalTruncated), systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.warningText)
+            }
         }
+    }
+
+    private func originalText(_ entry: HistoryEntry) -> some View {
+        let text = entry.originalContent ?? entry.originalPreview
+        let isShort = text.utf8.count <= 96 && !text.contains(where: \.isNewline)
+        // Laying out the whole of a 256 KiB clipboard is slow; the full text stays copyable.
+        return Text(String(text.prefix(4000)))
+            .font(.system(size: isShort ? 20 : 12.5, design: .monospaced))
+            .lineLimit(isShort ? 2 : 14)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
+    }
+
+    private func attachmentPreview(_ attachment: HistoryAttachment) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if attachment.fileName != nil || attachment.filePath != nil {
+                VStack(alignment: .leading, spacing: 3) {
+                    if let fileName = attachment.fileName {
+                        Text(fileName)
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    if let filePath = attachment.filePath {
+                        Text(filePath)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Color.mutedText)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            switch attachment.previewKind {
+            case .image:
+                if let path = attachment.assetPath, let image = NSImage(contentsOfFile: path) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 320)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                } else {
+                    Text(preferences.text(.previewUnavailable))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Color.mutedText)
+                }
+            case .text:
+                Text(String((attachment.textPreview ?? "").prefix(4000)))
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(18)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            case .none:
+                Text(preferences.text(.noPreviewForBinary))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.mutedText)
+            }
+        }
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
+    }
+
+    private func resultsSection(_ entry: HistoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text(preferences.text(.historyParsed))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.mutedText)
+                if !entry.results.isEmpty {
+                    Text("\(entry.results.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.mutedText)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Capsule().fill(Color.primary.opacity(0.06)))
+                }
+            }
+            if entry.results.isEmpty {
+                Text(preferences.text(.noParsedResults))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.mutedText)
+            } else {
+                ForEach(Array(entry.results.enumerated()), id: \.offset) { index, result in
+                    resultCard(entry: entry, result: result, index: index)
+                }
+            }
+        }
+    }
+
+    private func resultCard(entry: HistoryEntry, result: HistoryResult, index: Int) -> some View {
+        let isPrimary = index == 0
+        let isFocused = focusedPane == .parsed && selectedResultIndex == index
+        let showsFields = model.category(forParser: result.parserName).showsFields
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ParserBadge(name: result.parserName, isPrimary: isPrimary)
+                Spacer()
+                Button {
+                    copyPayload(.text(result.parsed), entry: entry)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(InteractiveIconButtonStyle())
+                .help(preferences.text(.copyResult))
+            }
+            ResultTextView(text: result.parsed, showsFields: showsFields, headlineSize: isPrimary ? 17 : 13.5)
+            if let details = result.details, details != result.parsed {
+                Divider()
+                Text(preferences.text(.details))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.mutedText)
+                ResultTextView(text: details, showsFields: showsFields, headlineSize: 13, muted: true)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, isPrimary ? 14 : 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.025)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(isFocused ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor.opacity(isFocused ? 0.28 : 0), lineWidth: 3)
+                .padding(-2.5)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            focusedPane = .parsed
+            selectedResultIndex = index
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 14) {
+            keyHint(["↑", "↓"], preferences.text(.selectHint))
+            keyHint(["←", "→"], preferences.text(.switchPaneHint))
+            keyHint(["esc"], preferences.text(.close))
+            Spacer(minLength: 8)
+            Button {
+                handleHistoryKeyAction(.copy)
+            } label: {
+                keyHint(["⌘", "↩"], preferences.text(focusedPane == .original ? .copyOriginal : .copyResult))
+            }
+            .buttonStyle(.plain)
+            Button {
+                handleHistoryKeyAction(.paste)
+            } label: {
+                HStack(spacing: 8) {
+                    Text(pasteLabel)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .lineLimit(1)
+                    KeyCap(key: "↩", onAccent: true)
+                }
+                .foregroundStyle(Color.white)
+                .padding(.leading, 12)
+                .padding(.trailing, 6)
+                .frame(height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color(nsColor: .selectedContentBackgroundColor))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .disabled(selectedHistoryEntry == nil)
+        .padding(.leading, 16)
+        .padding(.trailing, 10)
+        .frame(height: 40)
+        .background(Color.primary.opacity(0.03))
+    }
+
+    private func keyHint(_ keys: [String], _ label: String) -> some View {
+        HStack(spacing: 4) {
+            ForEach(keys, id: \.self) { key in
+                KeyCap(key: key)
+            }
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.mutedText)
+                .lineLimit(1)
+                .padding(.leading, 2)
+        }
+        .fixedSize()
+    }
+
+    private var pasteLabel: String {
+        let isOriginal = focusedPane == .original
+        if let name = model.pasteTargetName {
+            return String(format: preferences.text(isOriginal ? .pasteOriginalInto : .pasteResultInto), name)
+        }
+        return preferences.text(isOriginal ? .pasteOriginal : .pasteResult)
+    }
+
+    private struct HistoryDayGroup: Identifiable {
+        let id: Int
+        let day: Date
+        let title: String
+        var entries: [HistoryEntry]
+    }
+
+    private func dayGroups(_ entries: [HistoryEntry]) -> [HistoryDayGroup] {
+        let calendar = Calendar.current
+        var groups: [HistoryDayGroup] = []
+        for entry in entries {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            if groups.last?.day == day {
+                groups[groups.count - 1].entries.append(entry)
+            } else {
+                groups.append(HistoryDayGroup(id: groups.count, day: day, title: dayTitle(day), entries: [entry]))
+            }
+        }
+        return groups
+    }
+
+    private func dayTitle(_ day: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(day) {
+            return preferences.text(.today)
+        }
+        if calendar.isDateInYesterday(day) {
+            return preferences.text(.yesterday)
+        }
+        return day.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: preferences.locale))
+    }
+
+    private func symbolName(for entry: HistoryEntry) -> String {
+        if let parserName = entry.results.first?.parserName {
+            return model.category(forParser: parserName).symbolName
+        }
+        switch entry.contentKind ?? .text {
+        case .text:
+            return "text.alignleft"
+        case .image:
+            return "photo"
+        case .file:
+            return "doc"
+        }
+    }
+
+    private func rowTitle(_ entry: HistoryEntry) -> String {
+        switch entry.contentKind ?? .text {
+        case .text:
+            return entry.originalPreview.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        case .image:
+            return preferences.text(.kindImage)
+        case .file:
+            return entry.attachment?.fileName ?? entry.originalPreview
+        }
+    }
+
+    private func rowSubtitle(_ entry: HistoryEntry) -> String {
+        [kindSummary(entry), relativeTime(entry.timestamp)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    private func kindSummary(_ entry: HistoryEntry) -> String {
+        if let first = entry.results.first?.parserName {
+            let names = entry.results.map(\.parserName)
+            let repeats = names.filter { $0 == first }.count
+            let others = Set(names).count - 1
+            return first + (repeats > 1 ? " ×\(repeats)" : "") + (others > 0 ? " +\(others)" : "")
+        }
+        switch entry.contentKind ?? .text {
+        case .text:
+            return preferences.text(.kindText)
+        case .image:
+            guard let width = entry.attachment?.imageWidth, let height = entry.attachment?.imageHeight else { return "" }
+            return "\(width) × \(height)"
+        case .file:
+            return entry.attachment?.fileType ?? preferences.text(.kindFile)
+        }
+    }
+
+    private func relativeTime(_ date: Date) -> String {
+        let now = Date()
+        guard Calendar.current.isDate(date, inSameDayAs: now) else {
+            return date.formatted(Date.FormatStyle(time: .shortened, locale: preferences.locale))
+        }
+        if now.timeIntervalSince(date) < 60 {
+            return preferences.text(.justNow)
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = preferences.locale
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
+
+    private func originalMeta(_ entry: HistoryEntry) -> String {
+        var parts: [String] = []
+        if let attachment = entry.attachment {
+            parts.append(attachment.metadataText)
+        } else if entry.originalContentTruncated != true {
+            parts.append(String(format: preferences.text(.characterCount), (entry.originalContent ?? entry.originalPreview).count))
+        }
+        parts.append(timestampText(entry.timestamp))
+        return parts.joined(separator: " · ")
+    }
+
+    private func timestampText(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let time = date.formatted(Date.FormatStyle(time: .standard, locale: preferences.locale))
+        if calendar.isDateInToday(date) {
+            return "\(preferences.text(.today)) \(time)"
+        }
+        if calendar.isDateInYesterday(date) {
+            return "\(preferences.text(.yesterday)) \(time)"
+        }
+        return date.formatted(Date.FormatStyle(date: .abbreviated, time: .standard, locale: preferences.locale))
     }
 
     private var filteredHistory: [HistoryEntry] {
@@ -389,6 +656,11 @@ struct ClipboardPopoverView: View {
         case .parsed:
             return parsedOrPreviewPayload(entry)
         }
+    }
+
+    private func copyPayload(_ payload: ClipboardPayload, entry: HistoryEntry) {
+        model.promoteHistoryEntry(id: entry.id)
+        model.copy(payload)
     }
 
     private func originalPayload(_ entry: HistoryEntry) -> ClipboardPayload {
@@ -426,7 +698,6 @@ struct ClipboardPopoverView: View {
     private func selectFirstHistoryIfNeeded() {
         guard selectedHistoryID == nil else { return }
         selectedHistoryID = filteredHistory.first?.id
-        focusHistoryKeyboard()
     }
 
     private func reconcileHistorySelection() {
@@ -460,14 +731,15 @@ struct ClipboardPopoverView: View {
             clampSelectedResultIndex()
         case .copy:
             if let entry = selectedHistoryEntry, let payload = focusedContentPayload {
-                model.promoteHistoryEntry(id: entry.id)
-                model.copy(payload)
+                copyPayload(payload, entry: entry)
             }
         case .paste:
             if let entry = selectedHistoryEntry, let payload = focusedContentPayload {
                 model.promoteHistoryEntry(id: entry.id)
                 paste(payload)
             }
+        case .close:
+            close()
         }
     }
 
@@ -511,9 +783,6 @@ struct ClipboardPopoverView: View {
         }
         selectedResultIndex = min(max(selectedResultIndex, 0), entry.results.count - 1)
     }
-
-    private func focusHistoryKeyboard() {
-    }
 }
 
 struct HistorySearchField: NSViewRepresentable {
@@ -533,7 +802,7 @@ struct HistorySearchField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.font = .systemFont(ofSize: NSFont.systemFontSize)
+        field.font = .systemFont(ofSize: 14)
         focus(field)
         return field
     }
@@ -585,6 +854,7 @@ enum HistoryKeyAction {
     case focusParsed
     case copy
     case paste
+    case close
 }
 
 struct HistoryKeyboardCaptureView: NSViewRepresentable {
@@ -659,6 +929,8 @@ final class HistoryKeyboardCaptureNSView: NSView {
             } else {
                 onAction?(.paste)
             }
+        case 53:
+            onAction?(.close)
         case 123:
             onAction?(.focusOriginal)
         case 124:
@@ -699,20 +971,6 @@ private extension HistoryEntry {
         let haystack = fields.joined(separator: "\n")
         return haystack.localizedCaseInsensitiveContains(query)
     }
-
-    var summaryText: String {
-        if !results.isEmpty {
-            return results.map(\.parserName).joined(separator: ", ")
-        }
-        switch contentKind ?? .text {
-        case .text:
-            return "Text"
-        case .image:
-            return "Image"
-        case .file:
-            return attachment?.fileType ?? "File"
-        }
-    }
 }
 
 private extension HistoryAttachment {
@@ -725,7 +983,7 @@ private extension HistoryAttachment {
             parts.append(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
         }
         if let imageWidth, let imageHeight {
-            parts.append("\(imageWidth) x \(imageHeight)")
+            parts.append("\(imageWidth) × \(imageHeight)")
         }
         return parts.isEmpty ? "File" : parts.joined(separator: " · ")
     }

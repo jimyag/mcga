@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.overlayPresenter.show(
                 content: content,
                 results: results,
+                category: { [weak self] name in self?.model.category(forParser: name) ?? .text },
                 preferences: self.preferences,
                 copy: { [weak self] value in self?.model.copy(value) },
                 showHistory: { [weak self] in self?.openHistoryWindow() }
@@ -176,10 +177,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
            rememberExternalApp(app) {
             appBeforeHistoryBundleIdentifier = app.bundleIdentifier
             appBeforeHistoryProcessIdentifier = app.processIdentifier
-            return
+        } else {
+            appBeforeHistoryBundleIdentifier = lastExternalAppBundleIdentifier
+            appBeforeHistoryProcessIdentifier = lastExternalAppProcessIdentifier
         }
-        appBeforeHistoryBundleIdentifier = lastExternalAppBundleIdentifier
-        appBeforeHistoryProcessIdentifier = lastExternalAppProcessIdentifier
+        model.pasteTargetName = appBeforeHistoryTarget()?.localizedName
     }
 
     @discardableResult
@@ -278,14 +280,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showCentered(window)
     }
 
+    /// A borderless palette: the search field row is the top edge, and Esc or clicking away closes it.
     private func makeHistoryPanel(title: String, size: NSSize) -> NSPanel {
         let window = NonActivatingHistoryPanel(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        configureCenteredPanel(window, title: title)
+        window.title = title
+        window.isReleasedWhenClosed = false
+        window.isFloatingPanel = true
+        window.level = .floating
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.delegate = self
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         return window
     }
@@ -303,16 +313,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.level = .floating
         window.delegate = self
         return window
-    }
-
-    private func configureCenteredPanel(_ window: NSPanel, title: String) {
-        window.title = title
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.isReleasedWhenClosed = false
-        window.isFloatingPanel = true
-        window.level = .floating
-        window.delegate = self
     }
 
     private func showCentered(_ window: NSWindow) {

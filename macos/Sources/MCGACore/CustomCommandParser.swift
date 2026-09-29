@@ -18,14 +18,18 @@ struct CustomCommandParser: ContentParser {
                     zhExpected: $0.expected?.zh ?? $0.expectedText ?? "",
                     enExpected: $0.expected?.en ?? $0.expectedText ?? ""
                 )
-            }
+            },
+            category: .custom
         )
     }
 
-    static func load() -> [CustomCommandParser] {
-        let path = FileManager.default.homeDirectoryForCurrentUser
+    static var configURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/mcga/custom_parsers.json")
-        guard let data = try? Data(contentsOf: path),
+    }
+
+    static func load() -> [CustomCommandParser] {
+        guard let data = try? Data(contentsOf: configURL),
               let file = try? JSONDecoder().decode(CustomParserFile.self, from: data)
         else { return [] }
         return file.parsers

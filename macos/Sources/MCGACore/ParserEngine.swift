@@ -48,6 +48,18 @@ public struct ParserEngine: Sendable {
         parsers.map { $0.info ?? ParserCatalog.info(for: $0.name) }
     }
 
+    /// Categories keyed by the `parserName` that results carry.
+    public var parserCategories: [String: ParserCategory] {
+        var categories = Dictionary(parserInfos.map { ($0.name, $0.category) }, uniquingKeysWith: { first, _ in first })
+        // IPParser labels its results "IPv4".
+        categories["IPv4"] = .network
+        return categories
+    }
+
+    public static var customParserConfigURL: URL {
+        CustomCommandParser.configURL
+    }
+
     public func parse(
         _ content: String,
         previousContent: String = "",
@@ -96,6 +108,27 @@ public struct ParserInfo: Identifiable, Codable, Equatable, Sendable {
     public let zhDescription: String
     public let enDescription: String
     public let examples: [ParserExample]
+    public var category: ParserCategory = .text
+}
+
+/// Declaration order is the order parsers are grouped in settings.
+public enum ParserCategory: String, CaseIterable, Codable, Sendable {
+    case custom
+    case generator
+    case identifier
+    case network
+    case time
+    case dataFormat
+    case text
+
+    /// Whether results read as "label：value" facts; generated values, formatted data and
+    /// decoded text stay verbatim.
+    public var showsFields: Bool {
+        switch self {
+        case .custom, .identifier, .network, .time: true
+        case .generator, .dataFormat, .text: false
+        }
+    }
 }
 
 public struct ParserExample: Identifiable, Codable, Equatable, Sendable {
@@ -107,13 +140,45 @@ public struct ParserExample: Identifiable, Codable, Equatable, Sendable {
 
 enum ParserCatalog {
     static func info(for name: String) -> ParserInfo {
-        table[name] ?? ParserInfo(
+        var info = table[name] ?? ParserInfo(
             name: name,
             zhDescription: "解析剪切板中的 \(name) 内容。",
             enDescription: "Parses \(name) content from the clipboard.",
             examples: []
         )
+        info.category = categories[name] ?? .text
+        return info
     }
+
+    private static let categories: [String: ParserCategory] = [
+        "UUID Generator": .generator,
+        "Timestamp Generator": .generator,
+        "Time Generator": .generator,
+        "ObjectID Generator": .generator,
+        "Base64 Encode": .generator,
+        "Base64 Decode": .generator,
+        "Password Generator": .generator,
+        "UUID": .identifier,
+        "ObjectID": .identifier,
+        "Hash": .identifier,
+        "Number Base": .identifier,
+        "HTTP Status": .identifier,
+        "CIDR": .network,
+        "IPv6": .network,
+        "IP": .network,
+        "DNS": .network,
+        "URL": .network,
+        "Timestamp": .time,
+        "Cron": .time,
+        "JSON": .dataFormat,
+        "JSON5": .dataFormat,
+        "XML": .dataFormat,
+        "TOML": .dataFormat,
+        "YAML": .dataFormat,
+        "HTML Entity": .text,
+        "Unicode Escape": .text,
+        "Base64": .text,
+    ]
 
     private static let table: [String: ParserInfo] = [
         "UUID Generator": ParserInfo(name: "UUID Generator", zhDescription: "输入 uuid 生成 UUID v7。", enDescription: "Generates a UUID v7 from the keyword uuid.", examples: [ex("uuid", "输出一个新的 UUID v7。", "Outputs a new UUID v7.")]),

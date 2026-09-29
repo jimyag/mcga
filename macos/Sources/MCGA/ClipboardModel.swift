@@ -10,6 +10,8 @@ final class ClipboardModel: ObservableObject {
     @Published var history: [HistoryEntry] = []
     @Published var lastUpdated: Date?
     @Published var copyNotice: String?
+    /// The app that pasting from history returns to.
+    @Published var pasteTargetName: String?
     var onNewResults: ((String, [ParseResult]) -> Void)?
 
     private let engine = ParserEngine()
@@ -27,6 +29,12 @@ final class ClipboardModel: ObservableObject {
 
     var parserInfos: [ParserInfo] {
         engine.parserInfos
+    }
+
+    private lazy var parserCategories = engine.parserCategories
+
+    func category(forParser name: String) -> ParserCategory {
+        parserCategories[name] ?? .text
     }
 
     init(preferences: AppPreferences) {

@@ -245,6 +245,10 @@ final class AppPreferences: ObservableObject {
         key.value(language)
     }
 
+    var locale: Locale {
+        Locale(identifier: language == .zh ? "zh_CN" : "en_US")
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         LoginItemController.setEnabled(enabled)
         refreshLaunchAtLogin()
@@ -490,7 +494,6 @@ enum TextKey {
     case paused
     case waiting
     case emptyHint
-    case refreshHistory
     case quit
     case clearHistory
     case noHistory
@@ -529,9 +532,39 @@ enum TextKey {
     case openSettings
     case close
     case description
-    case examples
     case clipboardContent
     case expectedOutput
+    case monitoring
+    case pausedBanner
+    case historyCount
+    case today
+    case yesterday
+    case justNow
+    case characterCount
+    case selectHint
+    case switchPaneHint
+    case pasteOriginal
+    case pasteResult
+    case pasteOriginalInto
+    case pasteResultInto
+    case moreResults
+    case openInHistory
+    case details
+    case kindText
+    case kindImage
+    case kindFile
+    case searchParsers
+    case enabledParsersCount
+    case parserGroupCount
+    case showInFinder
+    case noMatchingParsers
+    case categoryCustom
+    case categoryGenerator
+    case categoryIdentifier
+    case categoryNetwork
+    case categoryTime
+    case categoryDataFormat
+    case categoryText
 
     func value(_ language: AppLanguage) -> String {
         switch (language, self) {
@@ -545,14 +578,12 @@ enum TextKey {
         case (.en, .currentClipboard): "Current clipboard"
         case (.zh, .copyOriginal): "复制原文"
         case (.en, .copyOriginal): "Copy original"
-        case (.zh, .paused): "已暂停监听"
+        case (.zh, .paused): "已暂停"
         case (.en, .paused): "Paused"
         case (.zh, .waiting): "等待剪切板内容"
         case (.en, .waiting): "Waiting for clipboard"
         case (.zh, .emptyHint): "复制可解析内容后会在这里显示。"
         case (.en, .emptyHint): "Copy supported content to show parsed results here."
-        case (.zh, .refreshHistory): "刷新历史"
-        case (.en, .refreshHistory): "Refresh history"
         case (.zh, .quit): "退出"
         case (.en, .quit): "Quit"
         case (.zh, .clearHistory): "清空历史"
@@ -629,12 +660,72 @@ enum TextKey {
         case (.en, .close): "Close"
         case (.zh, .description): "说明"
         case (.en, .description): "Description"
-        case (.zh, .examples): "示例"
-        case (.en, .examples): "Examples"
         case (.zh, .clipboardContent): "剪切板内容"
         case (.en, .clipboardContent): "Clipboard content"
         case (.zh, .expectedOutput): "预期输出"
         case (.en, .expectedOutput): "Expected output"
+        case (.zh, .monitoring): "监听中"
+        case (.en, .monitoring): "Monitoring"
+        case (.zh, .pausedBanner): "已暂停监听剪贴板，新复制的内容不会解析，也不会记入历史。"
+        case (.en, .pausedBanner): "Clipboard monitoring is paused. New copies are not parsed or saved to history."
+        case (.zh, .historyCount): "%d 条记录"
+        case (.en, .historyCount): "%d items"
+        case (.zh, .today): "今天"
+        case (.en, .today): "Today"
+        case (.zh, .yesterday): "昨天"
+        case (.en, .yesterday): "Yesterday"
+        case (.zh, .justNow): "刚刚"
+        case (.en, .justNow): "Just now"
+        case (.zh, .characterCount): "%d 字符"
+        case (.en, .characterCount): "%d characters"
+        case (.zh, .selectHint): "选择"
+        case (.en, .selectHint): "Select"
+        case (.zh, .switchPaneHint): "原文 / 结果"
+        case (.en, .switchPaneHint): "Original / Results"
+        case (.zh, .pasteOriginal): "粘贴原文"
+        case (.en, .pasteOriginal): "Paste original"
+        case (.zh, .pasteResult): "粘贴结果"
+        case (.en, .pasteResult): "Paste result"
+        case (.zh, .pasteOriginalInto): "粘贴原文到 %@"
+        case (.en, .pasteOriginalInto): "Paste original into %@"
+        case (.zh, .pasteResultInto): "粘贴结果到 %@"
+        case (.en, .pasteResultInto): "Paste result into %@"
+        case (.zh, .moreResults): "另外 %d 个结果：%@"
+        case (.en, .moreResults): "%d more: %@"
+        case (.zh, .openInHistory): "在历史中打开"
+        case (.en, .openInHistory): "Open in history"
+        case (.zh, .details): "详细信息"
+        case (.en, .details): "Details"
+        case (.zh, .kindText): "文本"
+        case (.en, .kindText): "Text"
+        case (.zh, .kindImage): "图片"
+        case (.en, .kindImage): "Image"
+        case (.zh, .kindFile): "文件"
+        case (.en, .kindFile): "File"
+        case (.zh, .searchParsers): "搜索名称、描述或示例"
+        case (.en, .searchParsers): "Search names, descriptions, or examples"
+        case (.zh, .enabledParsersCount): "已启用 %d / %d"
+        case (.en, .enabledParsersCount): "%d of %d enabled"
+        case (.zh, .parserGroupCount): "%d 个"
+        case (.en, .parserGroupCount): "%d"
+        case (.zh, .showInFinder): "在 Finder 中显示"
+        case (.en, .showInFinder): "Show in Finder"
+        case (.zh, .noMatchingParsers): "没有匹配的解析器"
+        case (.en, .noMatchingParsers): "No matching parsers"
+        case (.zh, .categoryCustom): "自定义命令"
+        case (.en, .categoryCustom): "Custom commands"
+        case (.zh, .categoryGenerator): "生成器 · 输入关键词触发"
+        case (.en, .categoryGenerator): "Generators · triggered by keywords"
+        case (.zh, .categoryIdentifier): "标识与编号"
+        case (.en, .categoryIdentifier): "Identifiers & numbers"
+        case (.zh, .categoryNetwork): "网络"
+        case (.en, .categoryNetwork): "Network"
+        case (.zh, .categoryTime): "时间"
+        case (.en, .categoryTime): "Time"
+        case (.zh, .categoryDataFormat): "数据格式"
+        case (.en, .categoryDataFormat): "Data formats"
+        case (.zh, .categoryText): "文本与编码"
+        case (.en, .categoryText): "Text & encoding"
         }
     }
 }

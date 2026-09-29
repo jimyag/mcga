@@ -87,6 +87,29 @@ expect(reorderedEntries.first?.originalContent == "third clipboard text", "new e
 expect(Set(reorderedEntries.map(\.id)).count == reorderedEntries.count, "history ids stay unique after promotion")
 try? FileManager.default.removeItem(at: historyDirectory)
 
+let categories = engine.parserCategories
+expect(categories["IPv4"] == .network, "IPv4 results use the network category")
+expect(categories["HTTP Status"] == .identifier, "HTTP Status category")
+expect(categories["JSON"] == .dataFormat, "JSON category")
+expect(categories["UUID Generator"] == .generator, "generator category")
+
+let statusLayout = ResultTextLayout(engine.parseAll("404").first { $0.parserName == "HTTP Status" }?.parsed ?? "")
+if case .fields(let headline, let fields) = statusLayout {
+    expect(headline == "404 Not Found", "HTTP Status headline")
+    expect(fields.map(\.label) == ["类型"] && fields.map(\.value) == ["客户端错误"], "HTTP Status fields")
+} else {
+    expect(false, "HTTP Status output reads as fields")
+}
+let baseLayout = ResultTextLayout(engine.parseAll("404").first { $0.parserName == "Number Base" }?.parsed ?? "")
+if case .fields(let headline, let fields) = baseLayout {
+    expect(headline == nil && fields.map(\.label) == ["输入进制", "DEC", "HEX", "OCT", "BIN"], "Number Base fields")
+} else {
+    expect(false, "Number Base output reads as fields")
+}
+expect(ResultTextLayout("{\n  \"hello\": \"world\"\n}") == .plain("{\n  \"hello\": \"world\"\n}"), "formatted JSON stays verbatim")
+expect(ResultTextLayout("DNS/A via Cloudflare DoH\n104.20.23.154") == .plain("DNS/A via Cloudflare DoH\n104.20.23.154"), "lines without labels stay verbatim")
+expect(ResultTextLayout("八位组：8.8.8.8\n\n地理位置信息：\n国家：美国") == .plain("八位组：8.8.8.8\n\n地理位置信息：\n国家：美国"), "section headers stay verbatim")
+
 if names.contains("QiniuLASRegion") {
     let regionResults = engine.parseAll("新加坡").filter { $0.parserName == "QiniuLASRegion" }
     expect(regionResults.first?.parsed == "ap-southeast-1", "QiniuLASRegion custom parser")
