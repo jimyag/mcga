@@ -135,8 +135,9 @@ struct FloatingOverlayView: View {
                     let kind = category(primary.parserName)
                     VStack(alignment: .leading, spacing: 8) {
                         ParserBadge(name: primary.parserName, isPrimary: true)
+                        // A custom command's `parsed` is only its first stdout line; details hold all of it.
                         ResultTextView(
-                            text: primary.parsed,
+                            text: kind == .custom ? primary.details ?? primary.parsed : primary.parsed,
                             showsFields: kind.showsFields,
                             headlineSize: 16,
                             selectableInPanel: true,

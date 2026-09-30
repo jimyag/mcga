@@ -86,7 +86,7 @@ macos/scripts/build-macos-app.sh                  打包 .build/MCGA.app
 
 - exit code 为 `0` 且 stdout 非空时才产生解析结果
 - stdout 第一行作为结果正文
-- stdout 多行时完整 stdout 作为详情
+- stdout 多行时完整 stdout 作为详情；macOS 浮层显示完整 stdout
 - stderr 忽略
 - `command` 支持绝对路径、`~`、`$HOME`、`${HOME}`
 - 命令必须是可执行文件

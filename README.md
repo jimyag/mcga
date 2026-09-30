@@ -183,7 +183,7 @@ Only command parsers are supported. MCGA executes the configured command, writes
 - exit code `0` means success
 - empty stdout means no result
 - the first stdout line is shown as the parsed value
-- multi-line stdout is preserved as result details
+- multi-line stdout is preserved as result details; the macOS popup shows all of it
 - stderr is ignored
 - command paths support absolute paths, `~`, `$HOME`, and `${HOME}`
 - commands must be executable files
