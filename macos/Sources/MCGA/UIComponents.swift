@@ -172,12 +172,15 @@ struct ResultTextView: View {
                     value(headline, font: .systemFont(ofSize: headlineSize, weight: .semibold))
                 }
                 if selectableInPanel {
-                    // AppKit text fields have no ideal width to size Grid columns with.
+                    // AppKit text fields have no ideal width to size Grid columns with, so the
+                    // label column takes the widest label's width, as the Grid below would.
+                    let labelWidth = fields.map { ($0.label as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width }.max() ?? 0
                     VStack(alignment: .leading, spacing: 5) {
                         ForEach(Array(fields.enumerated()), id: \.offset) { _, field in
                             HStack(alignment: .top, spacing: 12) {
                                 label(field.label)
-                                    .frame(width: 64, alignment: .leading)
+                                    .fixedSize()
+                                    .frame(width: labelWidth, alignment: .leading)
                                 value(field.value, font: .monospacedSystemFont(ofSize: 12.5, weight: .regular))
                             }
                         }
