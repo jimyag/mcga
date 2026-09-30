@@ -76,6 +76,8 @@ let encoded = await engine.parseAll("b64", previousContent: "hello world").first
 expect(encoded?.parserName == "Base64 Encode" && encoded?.parsed == "aGVsbG8gd29ybGQ=", "b64 output")
 let decoded = await engine.parseAll("db64", previousContent: "aGVsbG8gd29ybGQ=").first
 expect(decoded?.parserName == "Base64 Decode" && decoded?.parsed == "hello world", "db64 output")
+let base64 = await engine.parseAll("aGVsbG8gd29ybGQ=").first
+expect(base64?.parserName == "Base64" && base64?.parsed == "hello world", "Base64 result is the decoded text, got \(base64?.parsed ?? "nil")")
 
 let unicodeEscape = await engine.parseAll("hello \(backslash)u4F60\(backslash)u597D \(backslash)u{1F600} \(backslash)uD83D\(backslash)uDE00")
     .first { $0.parserName == "Unicode Escape" }

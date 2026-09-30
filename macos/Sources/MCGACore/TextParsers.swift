@@ -190,11 +190,8 @@ struct Base64Parser: ContentParser {
         return [ParseResult(
             parserName: name,
             original: content,
-            parsed: tr(
-                "格式：\(variant)  编码长度：\(content.count)  解码长度：\(decoded.count)",
-                "Format: \(variant)  Encoded: \(content.count)  Decoded: \(decoded.count)"
-            ),
-            details: "\(decoded)\n\n" + tr(
+            parsed: decoded,
+            details: tr(
                 "格式：\(variant)  编码长度：\(content.count)  解码长度：\(decoded.utf8.count) 字节",
                 "Format: \(variant)  Encoded: \(content.count)  Decoded: \(decoded.utf8.count) bytes"
             )
