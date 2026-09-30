@@ -117,6 +117,15 @@ final class ClipboardModel: ObservableObject {
         copy(.text(value))
     }
 
+    /// Text taken out of the overlay is new, unlike a copy from history, so history records and
+    /// parses it as any copy, without an overlay of its own.
+    func copyAndRecord(_ value: String) {
+        if !isPaused, value != currentContent {
+            parse(value, showsOverlay: false)
+        }
+        copy(value)
+    }
+
     func copy(_ payload: ClipboardPayload) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -174,8 +183,11 @@ final class ClipboardModel: ObservableObject {
         parse(text)
     }
 
-    private func parse(_ content: String) {
-        parseGeneration &+= 1
+    private func parse(_ content: String, showsOverlay: Bool = true) {
+        // Without an overlay the generation stays, so the overlay on screen still gets its slow results.
+        if showsOverlay {
+            parseGeneration &+= 1
+        }
         let generation = parseGeneration
         let previous = previousContent
         previousContent = content
@@ -190,7 +202,7 @@ final class ClipboardModel: ObservableObject {
         Task {
             var historyID: UInt64?
             for await results in updates {
-                if generation == parseGeneration, !results.isEmpty {
+                if showsOverlay, generation == parseGeneration, !results.isEmpty {
                     onResults?(generation, content, results)
                 }
                 if let historyID {

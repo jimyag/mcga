@@ -18,6 +18,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
   - Parser results follow the interface language.
   - The popup can be turned off, its duration set, and each parser set to keep its results in history only.
   - Selecting text in the popup copies it. Copying or pasting a result, from the popup or from history, takes the whole result: all of a custom command's output, or formatted data without its summary line.
+  - Text copied from the popup, by selecting it or with the copy button, joins history as a new entry, parsed there without another popup.
   - Custom command parsers and the network parsers (IP, DNS) run after the others, and their results join the popup and history as they arrive.
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.

@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 lifetime: TimeInterval(self.preferences.overlaySeconds),
                 category: { [weak self] name in self?.model.category(forParser: name) ?? .text },
                 preferences: self.preferences,
-                copy: { [weak self] value in self?.model.copy(value) },
+                copy: { [weak self] value in self?.model.copyAndRecord(value) },
                 showHistory: { [weak self] in self?.openHistoryWindow() }
             )
         }
