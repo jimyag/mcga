@@ -17,6 +17,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
   - Copied images are kept at full size, so copying them back from history loses nothing.
   - Parser results follow the interface language.
   - The popup can be turned off, its duration set, and each parser set to keep its results in history only.
+  - Selecting text in the popup copies it. Copying or pasting a result, from the popup or from history, takes the whole result: all of a custom command's output, or formatted data without its summary line.
   - Custom command parsers and the network parsers (IP, DNS) run after the others, and their results join the popup and history as they arrive.
 - Built-in parsers for UUID, ObjectID, hash, CIDR, IPv4/IPv6, timestamp, HTTP status, number base, Cron, URL, JSON, JSON5, XML, TOML, YAML, HTML entity, Unicode escape, Base64, DNS, and keyword generators.
 - Custom command parsers from local scripts.
@@ -183,7 +184,7 @@ Only command parsers are supported. MCGA executes the configured command, writes
 - exit code `0` means success
 - empty stdout means no result
 - the first stdout line is shown as the parsed value
-- multi-line stdout is preserved as result details; the macOS popup shows all of it
+- multi-line stdout is preserved as result details; on macOS the popup shows all of it, and copying or pasting the result takes all of it
 - stderr is ignored
 - command paths support absolute paths, `~`, `$HOME`, and `${HOME}`
 - commands must be executable files

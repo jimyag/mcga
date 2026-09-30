@@ -62,6 +62,7 @@ final class FloatingOverlayPresenter {
         panel.isOpaque = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = hostingView
+        panel.copySelection = copy
 
         panels.append(panel)
         latest = (id, panel, hostingView)
@@ -135,15 +136,14 @@ struct FloatingOverlayView: View {
                     let kind = category(primary.parserName)
                     VStack(alignment: .leading, spacing: 8) {
                         ParserBadge(name: primary.parserName, isPrimary: true)
-                        // A custom command's `parsed` is only its first stdout line; details hold all of it.
+                        // Formatted data parsers only describe the input in `parsed`; the content follows it.
                         ResultTextView(
-                            text: kind == .custom ? primary.details ?? primary.parsed : primary.parsed,
+                            text: kind == .dataFormat ? primary.parsed : kind.content(parsed: primary.parsed, details: primary.details),
                             showsFields: kind.showsFields,
                             headlineSize: 16,
                             selectableInPanel: true,
                             maxLines: 8
                         )
-                        // Formatted data parsers only describe the input in `parsed`; the content is in details.
                         if kind == .dataFormat, let details = primary.details {
                             ResultTextView(text: details, showsFields: false, selectableInPanel: true, maxLines: 12)
                         }
@@ -196,7 +196,7 @@ struct FloatingOverlayView: View {
 
             Button {
                 if let first = results.first {
-                    copy(first.parsed)
+                    copy(category(first.parserName).content(parsed: first.parsed, details: first.details))
                 }
             } label: {
                 Image(systemName: "doc.on.doc")
@@ -244,8 +244,35 @@ struct CountdownBar: View {
 }
 
 final class NonActivatingOverlayPanel: NSPanel {
+    /// Receives the text a click or drag selects, copied as a terminal does.
+    var copySelection: ((String) -> Void)?
+    /// Whether the button went down on selectable text, so its release ends a selection.
+    private var selecting = false
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown {
+            selecting = isSelectableText(at: event.locationInWindow)
+        }
+        super.sendEvent(event)
+        // The selection is final once the mouse-up is handled: as its own event, or inside
+        // mouseDown when a text view tracks the drag itself.
+        guard selecting, NSApp.currentEvent?.type == .leftMouseUp else { return }
+        selecting = false
+        guard let editor = firstResponder as? NSTextView else { return }
+        let range = editor.selectedRange()
+        if range.length > 0 {
+            copySelection?((editor.string as NSString).substring(with: range))
+        }
+    }
+
+    /// Clicks elsewhere, such as on the copy button, must not copy an earlier selection again.
+    private func isSelectableText(at point: NSPoint) -> Bool {
+        guard let hit = contentView?.hitTest(point) else { return false }
+        return sequence(first: hit, next: \.superview).contains { $0 is OverlaySelectableTextField }
+    }
 }
 
 /// Selectable text for non-activating panels, where SwiftUI text selection never gets key status.

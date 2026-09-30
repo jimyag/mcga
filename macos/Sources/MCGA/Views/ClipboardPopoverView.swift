@@ -502,13 +502,14 @@ struct ClipboardPopoverView: View {
     private func resultCard(entry: HistoryEntry, result: HistoryResult, index: Int) -> some View {
         let isPrimary = index == 0
         let isFocused = focusedPane == .parsed && selectedResultIndex == index
-        let showsFields = model.category(forParser: result.parserName).showsFields
+        let category = model.category(forParser: result.parserName)
+        let showsFields = category.showsFields
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 ParserBadge(name: result.parserName, isPrimary: isPrimary)
                 Spacer()
                 Button {
-                    copyPayload(.text(result.parsed), entry: entry)
+                    copyPayload(.text(category.content(parsed: result.parsed, details: result.details)), entry: entry)
                 } label: {
                     Image(systemName: "doc.on.doc")
                 }
@@ -791,8 +792,8 @@ struct ClipboardPopoverView: View {
 
     private func parsedOrPreviewPayload(_ entry: HistoryEntry) -> ClipboardPayload {
         if !entry.results.isEmpty {
-            let index = min(max(selectedResultIndex, 0), entry.results.count - 1)
-            return .text(entry.results[index].parsed)
+            let result = entry.results[min(max(selectedResultIndex, 0), entry.results.count - 1)]
+            return .text(model.category(forParser: result.parserName).content(parsed: result.parsed, details: result.details))
         }
         if let textPreview = entry.attachment?.textPreview, !textPreview.isEmpty {
             return .text(textPreview)

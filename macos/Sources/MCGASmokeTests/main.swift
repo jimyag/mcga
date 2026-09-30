@@ -155,10 +155,12 @@ func executable(_ name: String, _ script: String) throws -> String {
 let firstLine = try executable("first-line.sh", "#!/bin/sh\nread -r line\necho \"first:$line\"\n")
 let stamp = try executable("stamp.sh", "#!/bin/sh\necho custom\n")
 let sleeper = try executable("sleep.sh", "#!/bin/sh\nsleep 5\necho late\n")
+let twoLines = try executable("two-lines.sh", "#!/bin/sh\nprintf 'a: 1\\nb: 2\\n'\n")
 let config = scratch.appendingPathComponent("custom_parsers.json")
 try Data("""
 {"parsers": [
   {"name": "FirstLine", "match": "^first", "command": "\(firstLine)", "timeoutMs": 5000},
+  {"name": "TwoLines", "match": "^two$", "command": "\(twoLines)", "timeoutMs": 5000},
   {"name": "Stamp", "match": "^\\\\d{10}$", "command": "\(stamp)", "timeoutMs": 5000},
   {"name": "Sleeper", "match": "^sleep$", "command": "\(sleeper)", "timeoutMs": 200},
   {"name": "BadRegex", "match": "(", "command": "\(stamp)"},
@@ -179,6 +181,10 @@ let clock = ContinuousClock()
 var started = clock.now
 let firstLineResult = await custom.parseAll(large).first?.parsed
 expect(firstLineResult == "first:first", "command that stops reading stdin, got \(firstLineResult ?? "nil") after \(clock.now - started)")
+// Copying or pasting a result takes all of a command's output, not just the first line.
+let twoLinesResult = await custom.parseAll("two").first!
+let copied = custom.parserCategories[twoLinesResult.parserName]?.content(parsed: twoLinesResult.parsed, details: twoLinesResult.details)
+expect(twoLinesResult.parsed == "a: 1" && copied == "a: 1\nb: 2", "whole command output is copied, got \(copied ?? "nil")")
 started = clock.now
 expect(await custom.parseAll("sleep").isEmpty, "timed out command has no result")
 expect(clock.now - started < .seconds(2), "timeout stops a slow command")

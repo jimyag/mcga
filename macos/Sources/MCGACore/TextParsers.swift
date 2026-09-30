@@ -161,7 +161,7 @@ struct YAMLParser: ContentParser {
             parserName: name,
             original: content,
             parsed: summary,
-            details: "\(formatted.trimmingCharacters(in: .whitespacesAndNewlines))\n\(summary)"
+            details: formatted.trimmingCharacters(in: .whitespacesAndNewlines)
         )]
     }
 

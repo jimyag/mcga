@@ -160,6 +160,16 @@ public enum ParserCategory: String, CaseIterable, Codable, Sendable {
         case .generator, .dataFormat, .text: false
         }
     }
+
+    /// The whole of a result, as copying and pasting take it. Custom commands keep only their first
+    /// stdout line in `parsed` and all of it in details, and formatted data parsers describe the
+    /// input in `parsed` and keep the formatted text in details.
+    public func content(parsed: String, details: String?) -> String {
+        switch self {
+        case .custom, .dataFormat: details ?? parsed
+        default: parsed
+        }
+    }
 }
 
 public struct ParserExample: Identifiable, Codable, Equatable, Sendable {
