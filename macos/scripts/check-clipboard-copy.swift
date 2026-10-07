@@ -1,8 +1,8 @@
 import AppKit
 import MCGACore
 
-// After `swift build --product MCGA`, run:
-// swiftc -parse-as-library -I .build/out/Products/Debug -I .build/checkouts/Yams/Sources/CYaml/include -F .build/out/Products/Debug -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/.build/out/Products/Debug" scripts/check-clipboard-copy.swift Sources/MCGA/AppPreferences.swift Sources/MCGA/ClipboardModel.swift Sources/MCGA/AppDelegate.swift Sources/MCGA/UIComponents.swift Sources/MCGA/Views/*.swift .build/out/Products/Debug/libMCGACore.a -o .build/check-clipboard-copy
+// After `swift build --product MCGACore`, run:
+// swiftc -parse-as-library -I .build/out/Products/Debug -I .build/checkouts/Yams/Sources/CYaml/include -F .build/out/Products/Debug -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/.build/out/Products/Debug" scripts/check-clipboard-copy.swift Sources/MCGA/AppPreferences.swift Sources/MCGA/ClipboardModel.swift Sources/MCGA/VideoDownloadModel.swift Sources/MCGA/AppDelegate.swift Sources/MCGA/UIComponents.swift Sources/MCGA/Views/*.swift .build/out/Products/Debug/libMCGACore.a -o .build/check-clipboard-copy
 // .build/check-clipboard-copy
 
 @main

@@ -34,6 +34,7 @@ for name in [
     "HTTP Status", "Number Base", "Cron", "URL", "JSON", "JSON5", "XML", "TOML",
     "YAML", "HTML Entity", "Unicode Escape", "Base64", "DNS",
     "JWT", "Data Size", "Data Rate", "PEM Certificate", "SSH Public Key", "MAC Address",
+    "Video Download",
 ] {
     expect(names.contains(name), "missing parser \(name)")
 }
@@ -72,6 +73,22 @@ for (input, parserName) in [
 }
 expect(await engine.parseAll("404", enabledParserNames: []).isEmpty, "disabled all parsers")
 expect(await engine.parseAll("404", enabledParserNames: ["HTTP Status"]).map(\.parserName) == ["HTTP Status"], "enabled parser filter")
+for (input, host) in [
+    ("https://x.com/demo/status/123", "x.com"),
+    ("https://www.bilibili.com/video/BV1xx411c7mD", "www.bilibili.com"),
+    ("分享视频 https://v.douyin.com/example/ 复制后打开抖音", "v.douyin.com"),
+    ("https://www.tiktok.com/@demo/video/123", "www.tiktok.com"),
+    ("https://youtu.be/example", "youtu.be"),
+    ("https://example.com/video.mp4?token=demo", "example.com")
+] {
+    expect(VideoDownloadTarget(input)?.url.host == host, "video link or share text \(input)")
+    expect(await firstParser(input) == "Video Download", "video action comes before generic URL parsing")
+}
+for input in ["https://example.com/image.jpg", "https://x.com/demo", "https://x.com.evil.example/demo/status/123",
+              "https://user:password@x.com/demo/status/123", "file:///tmp/video.mp4",
+              "https://x.com/demo/status/1 https://x.com/demo/status/2"] {
+    expect(VideoDownloadTarget(input) == nil, "no action for images, profiles, spoofed hosts, credentials or multiple links")
+}
 
 let encoded = await engine.parseAll("b64", previousContent: "hello world").first
 expect(encoded?.parserName == "Base64 Encode" && encoded?.parsed == "aGVsbG8gd29ybGQ=", "b64 output")

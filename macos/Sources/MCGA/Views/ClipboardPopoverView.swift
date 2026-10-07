@@ -517,6 +517,9 @@ struct ClipboardPopoverView: View {
                 .help(preferences.text(.copyResult))
             }
             ResultTextView(text: result.parsed, showsFields: showsFields, headlineSize: isPrimary ? 17 : 13.5)
+            if result.parserName == "Video Download" {
+                VideoPreviewView(downloads: model.downloads, preferences: preferences, content: entry.originalContent ?? entry.originalPreview)
+            }
             if let details = result.details, details != result.parsed {
                 Divider()
                 Text(preferences.text(.details))

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import MCGACore
 import SwiftUI
 
@@ -12,8 +13,60 @@ final class OverlayCountdown: ObservableObject {
 final class FloatingOverlayPresenter {
     static let width: CGFloat = 360
     private var panels: [NSPanel] = []
+    private var downloadPanel: NSPanel?
+    private var downloadObservation: AnyCancellable?
     /// The newest copy's panel, updated in place as slower results arrive.
     private var latest: (id: UInt64, panel: NSPanel, view: NSHostingView<FloatingOverlayView>)?
+
+    func observeDownloads(_ downloads: VideoDownloadModel, preferences: AppPreferences) {
+        downloadObservation = downloads.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateDownloadPanel(downloads, preferences: preferences)
+            }
+        }
+        updateDownloadPanel(downloads, preferences: preferences)
+    }
+
+    private func updateDownloadPanel(_ downloads: VideoDownloadModel, preferences: AppPreferences) {
+        guard let screen = NSScreen.main else { return }
+        for panel in panels {
+            if let host = panel.contentView {
+                host.layoutSubtreeIfNeeded()
+                panel.setContentSize(NSSize(width: Self.width, height: fittingHeight(of: host, on: screen)))
+            }
+        }
+        guard downloads.phase != nil else {
+            downloadPanel?.orderOut(nil)
+            downloadPanel = nil
+            layoutPanels(on: screen)
+            return
+        }
+        let view = VideoDownloadProgressView(downloads: downloads, preferences: preferences)
+        let panel: NSPanel
+        let host: NSHostingView<VideoDownloadProgressView>
+        if let existing = downloadPanel, let existingHost = existing.contentView as? NSHostingView<VideoDownloadProgressView> {
+            panel = existing
+            host = existingHost
+            host.rootView = view
+        } else {
+            host = NSHostingView(rootView: view)
+            panel = NonActivatingOverlayPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            panel.title = "MCGA Video Download"
+            panel.becomesKeyOnlyIfNeeded = true
+            panel.level = .floating
+            panel.isReleasedWhenClosed = false
+            panel.hasShadow = true
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.contentView = host
+            downloadPanel = panel
+        }
+        host.layoutSubtreeIfNeeded()
+        panel.setContentSize(NSSize(width: Self.width, height: fittingHeight(of: host, on: screen)))
+        layoutPanels(on: screen)
+        if !panel.isVisible { panel.orderFrontRegardless() }
+    }
 
     func show(
         id: UInt64,
@@ -23,7 +76,8 @@ final class FloatingOverlayPresenter {
         category: @escaping (String) -> ParserCategory,
         preferences: AppPreferences,
         copy: @escaping (String) -> Void,
-        showHistory: @escaping () -> Void
+        showHistory: @escaping () -> Void,
+        downloads: VideoDownloadModel? = nil
     ) {
         guard let screen = NSScreen.main else { return }
         if let latest, latest.id == id {
@@ -57,7 +111,8 @@ final class FloatingOverlayPresenter {
             close: { [weak self, weak panel] in
                 guard let self, let panel else { return }
                 dismiss(panel, on: screen)
-            }
+            },
+            downloads: downloads
         ))
         panel.setContentSize(NSSize(width: Self.width, height: fittingHeight(of: hostingView, on: screen)))
         panel.becomesKeyOnlyIfNeeded = true
@@ -93,7 +148,8 @@ final class FloatingOverlayPresenter {
         let margin: CGFloat = 8
         let gap = max(10, frame.height * 0.012)
         var y = frame.maxY - margin
-        for panel in panels.reversed() {
+        let ordered = downloadPanel.map { [$0] } ?? []
+        for panel in ordered + panels.reversed() {
             y -= panel.frame.height
             let target = NSRect(origin: NSPoint(x: frame.maxX - Self.width - margin, y: y), size: panel.frame.size)
             if panel.isVisible {
@@ -115,7 +171,15 @@ final class FloatingOverlayPresenter {
             while remaining > 0 {
                 try? await Task.sleep(for: .seconds(step))
                 guard let panel, panel.isVisible else { return }
-                remaining = panel.frame.contains(NSEvent.mouseLocation) ? lifetime : remaining - step
+                let root = (panel.contentView as? NSHostingView<FloatingOverlayView>)?.rootView
+                var resolvingVideo = false
+                if let root, root.results.contains(where: { $0.parserName == "Video Download" }), let downloads = root.downloads {
+                    switch downloads.preview(for: root.content) {
+                    case .loading, nil: resolvingVideo = true
+                    default: break
+                    }
+                }
+                remaining = resolvingVideo || panel.frame.contains(NSEvent.mouseLocation) ? lifetime : remaining - step
                 // Unchanged values must not publish: a redraw resets any text selection in the panel.
                 let fraction = max(0, remaining / lifetime)
                 if countdown.remaining != fraction {
@@ -140,6 +204,7 @@ struct FloatingOverlayView: View {
     let copy: (String) -> Void
     let showHistory: () -> Void
     let close: () -> Void
+    var downloads: VideoDownloadModel? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -157,6 +222,9 @@ struct FloatingOverlayView: View {
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             ParserBadge(name: result.parserName, isPrimary: result.id == results.first?.id)
+                            if result.parserName == "Video Download", let downloads {
+                                VideoPreviewView(downloads: downloads, preferences: preferences, content: content)
+                            }
                             // Formatted data parsers only describe the input in `parsed`; the content follows it.
                             ResultTextView(
                                 text: kind == .dataFormat ? result.parsed : kind.content(parsed: result.parsed, details: result.details),
@@ -257,6 +325,11 @@ final class NonActivatingOverlayPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func orderOut(_ sender: Any?) {
+        if let contentView { InlineVideoPreview.stopPlayback(in: contentView) }
+        super.orderOut(sender)
+    }
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown {

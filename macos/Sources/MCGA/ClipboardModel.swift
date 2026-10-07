@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class ClipboardModel: ObservableObject {
+    let downloads = VideoDownloadModel()
     @Published var isPaused = false
     @Published var history: [HistoryEntry] = []
     @Published var copyNotice: String?

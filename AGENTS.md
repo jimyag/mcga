@@ -74,6 +74,12 @@ macos/scripts/build-macos-app.sh                  打包 .build/MCGA.app
 
 当前 Swift 版覆盖：关键词生成器、自定义 command 解析器、JWT、PEM Certificate、SSH Public Key、MAC Address、Data Size、Data Rate、CIDR、UUID、ObjectID、Hash、IPv6、公网 IPv4、Timestamp、HTTP Status、Number Base、Cron、URL、JSON、JSON5、XML、TOML、YAML、HTML Entity、Unicode Escape、Base64、DNS。Data Size 换算数据大小，区分 bit/Byte、十进制/二进制前缀，支持 `Mi`、`Gi` 等容量写法，无单位的非负数字按字节换算并标注。Data Rate 换算 `Mbps`、`MB/s`、`MiB/s` 等带宽和传输速率，不把纯数字猜成速率。换算结果最多保留 12 位有效数字。JWT 仅解码、不验证签名，PEM 证书仅解析、不验证信任链，均在本地处理。
 
+## 视频下载
+
+`Video Download` 识别 X/Twitter、哔哩哔哩、抖音、TikTok、YouTube、Vimeo 链接、分享文本及视频直链。浮层或历史显示视频结果时，先用本机 `yt-dlp --skip-download --dump-single-json` 解析视频信息；确认有视频后才显示下载按钮，同时展示标题、封面、时长和内嵌预览入口。仅图片或解析失败不显示下载按钮。点击下载后使用 `bestvideo+bestaudio/best` 下载到 `~/Downloads`，并由 `ffmpeg` 合并音视频；缺少任一工具时明确提示下载不可用。不下载图片。一次只运行一个下载任务，关闭普通浮层或历史窗口不取消下载；下载和合并状态显示在右上角常驻下载浮层中，提供进度、速度、剩余时间、取消、重试和文件入口。下载不自动打开主窗口，主窗口不显示下载进度条。普通剪切板浮层排在下载浮层下方；完成后可按叉关闭下载浮层。登录失败时，用户可主动选择浏览器 Cookie 后重新解析或重试，不自动读取登录状态；成功解析所选浏览器只用于同一链接的后续下载。
+
+`VideoDownloadModel.swift` 在后台读取 `--progress-template` 和 `--print after_move` 的结构化输出，不解析普通进度行；忽略 yt-dlp 配置，URL 使用独立进程参数传入。工具搜索路径包括 `~/.local/bin`、Homebrew 和 PATH。原生离线下载检查见 `scripts/check-video-download.swift`，真实工具检查可传入本地 HTTP 视频地址。
+
 ## 自定义 Command 解析器
 
 自定义解析器配置文件：

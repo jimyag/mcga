@@ -2,8 +2,8 @@ import AppKit
 import MCGACore
 import SwiftUI
 
-// After `swift build --product MCGA`, run:
-// swiftc -parse-as-library -I .build/out/Products/Debug -I .build/checkouts/Yams/Sources/CYaml/include scripts/check-floating-overlay.swift Sources/MCGA/AppPreferences.swift Sources/MCGA/UIComponents.swift Sources/MCGA/Views/FloatingOverlayView.swift .build/out/Products/Debug/libMCGACore.a -o .build/check-floating-overlay
+// After `swift build --product MCGACore`, run:
+// swiftc -parse-as-library -I .build/out/Products/Debug -I .build/checkouts/Yams/Sources/CYaml/include scripts/check-floating-overlay.swift Sources/MCGA/AppPreferences.swift Sources/MCGA/VideoDownloadModel.swift Sources/MCGA/UIComponents.swift Sources/MCGA/Views/FloatingOverlayView.swift Sources/MCGA/Views/VideoDownloadView.swift Sources/MCGA/Views/VideoPreviewView.swift .build/out/Products/Debug/libMCGACore.a -o .build/check-floating-overlay
 // .build/check-floating-overlay
 
 @main

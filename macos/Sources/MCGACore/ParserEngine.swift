@@ -38,6 +38,7 @@ public struct ParserEngine: Sendable {
         ]
         + custom.parsers
         + [
+            VideoDownloadParser(),
             JWTParser(),
             PEMCertificateParser(),
             SSHPublicKeyParser(),
@@ -215,6 +216,7 @@ enum ParserCatalog {
         "MAC Address": .network,
         "Data Size": .identifier,
         "Data Rate": .identifier,
+        "Video Download": .network,
         "HTTP Status": .identifier,
         "CIDR": .network,
         "IPv6": .network,
@@ -234,6 +236,7 @@ enum ParserCatalog {
     ]
 
     private static let table: [String: ParserInfo] = [
+        "Video Download": ParserInfo(name: "Video Download", zhDescription: "解析视频信息并提供预览，确认有视频后可下载最高画质到 Downloads。", enDescription: "Resolves video metadata with a preview; confirmed videos can be downloaded at the best quality to Downloads.", examples: [ex("https://www.bilibili.com/video/BV1xx411c7mD", "先解析视频信息，成功后显示预览和下载按钮。", "Resolves video metadata before showing preview and download controls.")]),
         "Data Rate": ParserInfo(name: "Data Rate", zhDescription: "本地换算带宽和传输速率，区分 Mbps/Gbps、MB/s、MiB/s，1 Byte = 8 bit。", enDescription: "Locally converts bandwidth and transfer rates, distinguishing Mbps/Gbps, MB/s, and MiB/s; 1 byte = 8 bits.", examples: [ex("100 Mbps", "输出 12.5 MB/s 和 11.9209289551 MiB/s 等。", "Shows 12.5 MB/s, 11.9209289551 MiB/s, and more.")]),
         "JWT": ParserInfo(name: "JWT", zhDescription: "本地解码 JWT 的 Header、Payload 和时间声明，不验证签名。", enDescription: "Locally decodes JWT headers, payloads, and time claims without verifying signatures.", examples: [ex("eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZW1vIn0.", "输出 Header、Payload，并标注未验证签名。", "Shows header and payload with an unverified-signature label.")]),
         "Data Size": ParserInfo(name: "Data Size", zhDescription: "换算 bit/Byte 和 kB/MB、KiB/MiB 等单位。无单位的非负数字按字节换算，结果最多 12 位有效数字。", enDescription: "Converts bits, bytes, decimal and binary sizes. Unitless nonnegative numbers are bytes; results use up to 12 significant digits.", examples: [ex("1048576", "按字节换算，输出 1 MiB、1.048576 MB 等。", "Interprets bytes and shows 1 MiB, 1.048576 MB, and more."), ex("8 Mb", "区分位和字节，输出 1 MB。", "Distinguishes bits from bytes and shows 1 MB.")]),

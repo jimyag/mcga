@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         _ = updaterController
         setupStatusItem()
+        overlayPresenter.observeDownloads(model.downloads, preferences: preferences)
         preferences.onHistoryShortcutChanged = { [weak self] enabled, shortcut in
             self?.configureHistoryShortcut(enabled: enabled, shortcut: shortcut)
         }
@@ -52,10 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 category: { [weak self] name in self?.model.category(forParser: name) ?? .text },
                 preferences: self.preferences,
                 copy: { [weak self] value in self?.model.copyAndRecord(value) },
-                showHistory: { [weak self] in self?.openHistoryWindow() }
+                showHistory: { [weak self] in self?.openHistoryWindow() },
+                downloads: self.model.downloads
             )
         }
         model.start()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        model.downloads.cancel()
     }
 
     private func setupStatusItem() {
@@ -478,6 +484,7 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         if window === historyWindow {
+            if let content = window.contentView { InlineVideoPreview.stopPlayback(in: content) }
             historyWindow = nil
         }
         if window === settingsWindow {
