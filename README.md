@@ -27,13 +27,17 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
 
 ## Screenshots
 
-### Popover
+### macOS history
 
-![MCGA popover](docs/images/popover.png)
+![MCGA macOS history with an image preview](docs/images/popover.png)
 
-### Settings
+### macOS popup
 
-![MCGA settings](docs/images/settings.png)
+![MCGA macOS popup showing multiple results and the close button](docs/images/overlay.png)
+
+### macOS settings
+
+![MCGA macOS settings](docs/images/settings.png)
 
 ### Windows
 
