@@ -38,6 +38,10 @@ public struct ParserEngine: Sendable {
         ]
         + custom.parsers
         + [
+            JWTParser(),
+            PEMCertificateParser(),
+            SSHPublicKeyParser(),
+            MACAddressParser(),
             CIDRParser(),
             UUIDParser(),
             ObjectIDParser(),
@@ -47,6 +51,8 @@ public struct ParserEngine: Sendable {
             TimestampParser(),
             HTTPStatusParser(),
             NumberBaseParser(),
+            DataSizeParser(),
+            DataRateParser(),
             CronParser(),
             URLParser(),
             JSONParser(),
@@ -203,6 +209,12 @@ enum ParserCatalog {
         "ObjectID": .identifier,
         "Hash": .identifier,
         "Number Base": .identifier,
+        "JWT": .identifier,
+        "PEM Certificate": .identifier,
+        "SSH Public Key": .identifier,
+        "MAC Address": .network,
+        "Data Size": .identifier,
+        "Data Rate": .identifier,
         "HTTP Status": .identifier,
         "CIDR": .network,
         "IPv6": .network,
@@ -222,6 +234,12 @@ enum ParserCatalog {
     ]
 
     private static let table: [String: ParserInfo] = [
+        "Data Rate": ParserInfo(name: "Data Rate", zhDescription: "本地换算带宽和传输速率，区分 Mbps/Gbps、MB/s、MiB/s，1 Byte = 8 bit。", enDescription: "Locally converts bandwidth and transfer rates, distinguishing Mbps/Gbps, MB/s, and MiB/s; 1 byte = 8 bits.", examples: [ex("100 Mbps", "输出 12.5 MB/s 和 11.9209289551 MiB/s 等。", "Shows 12.5 MB/s, 11.9209289551 MiB/s, and more.")]),
+        "JWT": ParserInfo(name: "JWT", zhDescription: "本地解码 JWT 的 Header、Payload 和时间声明，不验证签名。", enDescription: "Locally decodes JWT headers, payloads, and time claims without verifying signatures.", examples: [ex("eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZW1vIn0.", "输出 Header、Payload，并标注未验证签名。", "Shows header and payload with an unverified-signature label.")]),
+        "Data Size": ParserInfo(name: "Data Size", zhDescription: "换算 bit/Byte 和 kB/MB、KiB/MiB 等单位。无单位的非负数字按字节换算，结果最多 12 位有效数字。", enDescription: "Converts bits, bytes, decimal and binary sizes. Unitless nonnegative numbers are bytes; results use up to 12 significant digits.", examples: [ex("1048576", "按字节换算，输出 1 MiB、1.048576 MB 等。", "Interprets bytes and shows 1 MiB, 1.048576 MB, and more."), ex("8 Mb", "区分位和字节，输出 1 MB。", "Distinguishes bits from bytes and shows 1 MB.")]),
+        "PEM Certificate": ParserInfo(name: "PEM Certificate", zhDescription: "本地解析 PEM X.509 证书或证书链的主体、签发者、有效期、备用名称和 SHA-256 指纹，不验证信任链。", enDescription: "Locally reads PEM X.509 certificates or chains: subject, issuer, validity, SANs, and SHA-256 fingerprints. Does not verify trust.", examples: []),
+        "SSH Public Key": ParserInfo(name: "SSH Public Key", zhDescription: "解析 OpenSSH 格式的 RSA、DSA、ECDSA、Ed25519 公钥，显示类型、位数、SHA256 指纹和注释。", enDescription: "Reads OpenSSH RSA, DSA, ECDSA, and Ed25519 public keys: type, bits, SHA256 fingerprint, and comment.", examples: []),
+        "MAC Address": ParserInfo(name: "MAC Address", zhDescription: "识别冒号、短横线、点分或连续十六进制 MAC 地址，输出标准形式及单播/组播、全局/本地管理属性。", enDescription: "Normalizes colon, hyphen, dotted, or compact MAC addresses and shows unicast/multicast and universal/local administration.", examples: [ex("02:11:22:33:44:55", "输出标准地址、单播和本地管理属性。", "Shows the normalized address, unicast, and local administration.")]),
         "UUID Generator": ParserInfo(name: "UUID Generator", zhDescription: "输入 uuid 生成 UUID v7。", enDescription: "Generates a UUID v7 from the keyword uuid.", examples: [ex("uuid", "输出一个新的 UUID v7。", "Outputs a new UUID v7.")]),
         "Timestamp Generator": ParserInfo(name: "Timestamp Generator", zhDescription: "输入 ts 或 timestamp 生成当前秒级时间戳。", enDescription: "Generates the current Unix timestamp from ts or timestamp.", examples: [ex("ts", "输出当前 Unix 秒级时间戳。", "Outputs current Unix timestamp in seconds.")]),
         "Time Generator": ParserInfo(name: "Time Generator", zhDescription: "输入 time 生成当前 RFC3339 时间。", enDescription: "Generates current RFC3339 time from time.", examples: [ex("time", "输出当前 RFC3339 时间。", "Outputs current RFC3339 time.")]),

@@ -72,7 +72,7 @@ macos/scripts/build-macos-app.sh                  打包 .build/MCGA.app
 
 解析结果跟随界面语言，解析器里的文案用 `tr("中文", "English")` 或 `labeled(...)` 写两种语言。
 
-当前 Swift 版覆盖：关键词生成器、自定义 command 解析器、CIDR、UUID、ObjectID、Hash、IPv6、公网 IPv4、Timestamp、HTTP Status、Number Base、Cron、URL、JSON、JSON5、XML、TOML、YAML、HTML Entity、Unicode Escape、Base64、DNS。
+当前 Swift 版覆盖：关键词生成器、自定义 command 解析器、JWT、PEM Certificate、SSH Public Key、MAC Address、Data Size、Data Rate、CIDR、UUID、ObjectID、Hash、IPv6、公网 IPv4、Timestamp、HTTP Status、Number Base、Cron、URL、JSON、JSON5、XML、TOML、YAML、HTML Entity、Unicode Escape、Base64、DNS。Data Size 换算数据大小，区分 bit/Byte、十进制/二进制前缀，支持 `Mi`、`Gi` 等容量写法，无单位的非负数字按字节换算并标注。Data Rate 换算 `Mbps`、`MB/s`、`MiB/s` 等带宽和传输速率，不把纯数字猜成速率。换算结果最多保留 12 位有效数字。JWT 仅解码、不验证签名，PEM 证书仅解析、不验证信任链，均在本地处理。
 
 ## 自定义 Command 解析器
 

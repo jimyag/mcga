@@ -33,6 +33,7 @@ for name in [
     "CIDR", "UUID", "ObjectID", "Hash", "IPv6", "IP", "Timestamp",
     "HTTP Status", "Number Base", "Cron", "URL", "JSON", "JSON5", "XML", "TOML",
     "YAML", "HTML Entity", "Unicode Escape", "Base64", "DNS",
+    "JWT", "Data Size", "Data Rate", "PEM Certificate", "SSH Public Key", "MAC Address",
 ] {
     expect(names.contains(name), "missing parser \(name)")
 }
@@ -137,6 +138,92 @@ expect(ResultTextLayout("八位组：8.8.8.8\n\n地理位置信息：\n国家：
 
 // English results for the English interface.
 let english = ParserEngine(language: .en, customParserConfig: nil, fetch: fetch)
+func newResult(_ input: String, _ name: String) async -> String? {
+    await english.parseAll(input, enabledParserNames: [name]).first?.parsed
+}
+for (input, expected) in [("1048576", "MiB: 1 MiB"), ("1 MiB", "B: 1048576 B"),
+                          ("1 MB", "B: 1000000 B"), ("8 Mb", "B: 1000000 B"),
+                          ("1 Kib", "B: 128 B"), ("1 KB", "B: 1000 B"),
+                          ("0.5GiB", "MiB: 512 MiB"), ("1e6", "MB: 1 MB"),
+                          ("128Mi", "B: 134217728 B"), ("1G", "B: 1000000000 B"),
+                          ("0", "B: 0 B"), ("8位", "B: 1 B")] {
+    expect(await newResult(input, "Data Size")?.contains(expected) == true, "data size \(input) -> \(expected)")
+}
+expect(await newResult("1024", "Data Size")?.contains("Unitless number interpreted as bytes") == true, "unitless size assumption is explicit")
+let decimalRate = await newResult("100 Mbps", "Data Rate")
+expect(decimalRate?.contains("TB/s: 0.0000125 TB/s") == true, "bandwidth uses ordinary decimals instead of scientific notation")
+expect(decimalRate?.contains("EiB/s: 0.0000000000108420217249 EiB/s") == true, "tiny bandwidth conversion retains significant digits")
+let decimalSize = await newResult("1e20 B", "Data Size")
+expect(decimalSize?.contains("B: 100000000000000000000 B") == true, "large sizes use ordinary decimal integers")
+for (input, expected) in [("100 Mbps", "MB/s: 12.5 MB/s"), ("1Gbps", "MB/s: 125 MB/s"),
+                          ("1 MB/s", "Mbit/s: 8 Mbit/s"), ("1 MiB/s", "bit/s: 8388608 bit/s"),
+                          ("1 Kbps", "B/s: 125 B/s"), ("8位/秒", "B/s: 1 B/s"), ("8bps", "B/s: 1 B/s")] {
+    expect(await newResult(input, "Data Rate")?.contains(expected) == true, "data rate \(input) -> \(expected)")
+    expect(await newResult(input, "Data Size") == nil, "rates are distinct from sizes")
+}
+for input in ["100", "1/s", "1mbps", "-1Mbps", "1e999Mbps", "1MB/s junk"] {
+    expect(await newResult(input, "Data Rate") == nil, "reject ambiguous or invalid rate \(input)")
+}
+for input in ["-1", "1e999", "1e-999", "NaN", "inf", "1mb", "1 MiB junk", "1 kg", "300ms", "1e308 EB"] {
+    expect(await newResult(input, "Data Size") == nil, "reject invalid or unrelated size \(input)")
+}
+func base64URL(_ text: String) -> String {
+    Data(text.utf8).base64EncodedString().replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+}
+let jwt = base64URL(#"{"alg":"HS256","typ":"JWT"}"#) + "." + base64URL(#"{"sub":"demo","iat":1700000000,"exp":0}"#) + ".c2lnbmF0dXJl"
+let jwtText = await newResult("Bearer " + jwt, "JWT")
+expect(jwtText?.contains("Not verified (decode only)") == true && jwtText?.contains("Expired (unverified claim)") == true && jwtText?.contains("2023-11-14") == true && jwtText?.contains("\"sub\" : \"demo\"") == true, "JWT decoded claims and signature limitation")
+expect(await newResult("eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZW1vIn0.", "JWT") != nil, "unsigned JWT")
+for input in ["abc.def.ghi", "e30.e30.c2ln", "eyJhbGciOiJIUzI1NiJ9.e30.", jwt + ".extra", "eyJhbGciOiJub25lIn0.W10."] {
+    expect(await newResult(input, "JWT") == nil, "reject malformed JWT")
+}
+for input in ["02:11:22:33:44:55", "02-11-22-33-44-55", "0211.2233.4455"] {
+    let text = await newResult(input, "MAC Address")
+    expect(text?.contains("MAC: 02:11:22:33:44:55") == true && text?.contains("Unicast") == true && text?.contains("Locally administered") == true, "MAC normalization and local bit")
+}
+expect(await newResult("ff:ff:ff:ff:ff:ff", "MAC Address")?.contains("Broadcast") == true, "broadcast MAC")
+expect(await newResult("01:00:5e:00:00:01", "MAC Address")?.contains("Multicast") == true, "multicast MAC")
+for input in ["00:11-22:33:44:55", "00:11:22:33:44", "001122334455", "gg:11:22:33:44:55"] {
+    expect(await newResult(input, "MAC Address") == nil, "reject malformed or ambiguous MAC")
+}
+let sshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcK9AzGScEXMtbkjQLK8gojsSHuM7cismd8l5wEfrXX mcga-demo"
+let sshText = await newResult(sshPublicKey, "SSH Public Key")
+expect(sshText?.contains("Bits: 256") == true && sshText?.contains("SHA256:O1T2L5VsAh8RrTIDBxfzPiASqHK0gccsOjfFDynDRYw") == true && sshText?.contains("Comment: mcga-demo") == true, "SSH fingerprint matches ssh-keygen")
+let rsaPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCZ8g6097RCqMirciRvz6kpVYJXoT4iwJzxqswUx+aTjqnEyBPr+8B9eXZq33DqDzWboZkOqyY16Wj4+z7dPJSPVIVmZv0oG6gOXccPzNicj115vs52ZA/4aon89/1rZqIF5s0lICkGHP59t1jLlrAm/LXWUkx97yZJ+EENtF8sRmPAFlO1VagdSUk1LJuZ79Fsbx0D/0wOnFyFjmdCy2ZJS6a8sgs2TOXIX8Dkcsuh047ERU1DGfDZmC49YHhOy9ZQYWgiZGWNJ5S8ABsZaxbMxUsQnIJ8oAzrZPOomCdlrm5tETvZ4HdJEqb578YL9h3vUnYYKtTWB8oerKkCNwHv"
+expect(await newResult(rsaPublicKey, "SSH Public Key")?.contains("Bits: 2048") == true, "SSH RSA modulus size")
+let ecdsaPublicKey = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBM390MBo0/G+xyU51GIBf5I9RclrR4YOT7/FpKjSqikkIBAzDg9EarwbpR+/yhFjAo27qc6e58yc8OuaS6s4pQ4= mcga-demo"
+expect(await newResult(ecdsaPublicKey, "SSH Public Key")?.contains("SHA256:+iOofQXxh6piIDE1ZKI2QZv4qYLKS2RbdfEdTazNArI") == true, "SSH ECDSA fingerprint")
+for input in [sshPublicKey.replacingOccurrences(of: "ssh-ed25519 ", with: "ssh-rsa "), "ssh-ed25519 AAAA////", "ssh-ed25519 Zm9v", sshPublicKey + "\nsecond line"] {
+    expect(await newResult(input, "SSH Public Key") == nil, "reject malformed SSH key")
+}
+let pem = """
+-----BEGIN CERTIFICATE-----
+MIIC2jCCAcKgAwIBAgIJALGDDv1oGnueMA0GCSqGSIb3DQEBCwUAMBYxFDASBgNV
+BAMMC2V4YW1wbGUuY29tMB4XDTI2MTAwNzA0MzkxN1oXDTM2MTAwNDA0MzkxN1ow
+FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw
+ggEKAoIBAQCZ8g6097RCqMirciRvz6kpVYJXoT4iwJzxqswUx+aTjqnEyBPr+8B9
+eXZq33DqDzWboZkOqyY16Wj4+z7dPJSPVIVmZv0oG6gOXccPzNicj115vs52ZA/4
+aon89/1rZqIF5s0lICkGHP59t1jLlrAm/LXWUkx97yZJ+EENtF8sRmPAFlO1Vagd
+SUk1LJuZ79Fsbx0D/0wOnFyFjmdCy2ZJS6a8sgs2TOXIX8Dkcsuh047ERU1DGfDZ
+mC49YHhOy9ZQYWgiZGWNJ5S8ABsZaxbMxUsQnIJ8oAzrZPOomCdlrm5tETvZ4HdJ
+Eqb578YL9h3vUnYYKtTWB8oerKkCNwHvAgMBAAGjKzApMCcGA1UdEQQgMB6CC2V4
+YW1wbGUuY29tgg93d3cuZXhhbXBsZS5jb20wDQYJKoZIhvcNAQELBQADggEBAI0G
+hcWfYZ6v0g8Y6nlXvNvfUfAkS31U8/rv8UIDzbzABWYZsktC3WbieNhdhrUBXctr
+n23MsBZPAXq8T2e614qcg8L/SDZQIOUefuQghByMYDHJLsZFTvp+wpNTPEguy89R
+1nduCNpR2oXAr1kIuvbIdwaVC9xjgJ7K4VZwvpT/q1227r88eDKYJIrhDP/5DsHr
+PVzu2HEaUJ9tXDPkWGdMLeYtwJzM8Bsb6LKOrKrp8mJ8G0HtR67plLvrKPdbY8Vq
+8i5/10xg8aeSqzTLRNG258zDxZvabBkj4Rm/qeg7Zskfll1w/3Ad1thph46XPjlr
+H8evq1AgbNuygBS1I8I=
+-----END CERTIFICATE-----
+"""
+let certificateText = await newResult(pem, "PEM Certificate")
+expect(certificateText?.contains("example.com") == true && certificateText?.contains("www.example.com") == true && certificateText?.contains("Key bits: 2048") == true && certificateText?.contains("2026-10-07 04:39:17 UTC") == true && certificateText?.contains("2036-10-04 04:39:17 UTC") == true, "PEM subject, SAN, key bits, and validity")
+expect(certificateText?.contains("d82c6cd5ee48019412157053a706f99253a03a99c1a7a58f7cf0c12eb3ba5561") == true, "PEM SHA-256 fingerprint matches openssl")
+expect(await english.parseAll(pem + "\n" + pem, enabledParserNames: ["PEM Certificate"]).count == 2, "PEM certificate chain")
+for input in ["-----BEGIN CERTIFICATE-----\nZm9v\n-----END CERTIFICATE-----", pem + " junk", pem.replacingOccurrences(of: "END CERTIFICATE", with: "END PRIVATE KEY")] {
+    expect(await newResult(input, "PEM Certificate") == nil, "reject malformed PEM")
+}
 let englishStatus = fields(await english.parseAll("404").first { $0.parserName == "HTTP Status" }?.parsed)
 expect(englishStatus?.labels == ["Class"] && englishStatus?.values == ["Client error"], "English HTTP Status fields")
 let englishCIDR = fields(await english.parseAll("192.168.1.20/24").first?.parsed)
@@ -197,7 +284,7 @@ started = clock.now
 for await results in custom.results(for: "1700000000") {
     updates.append(results.map(\.parserName))
 }
-expect(updates.first == ["Timestamp"] && updates.last == ["Stamp", "Timestamp"], "streamed results, got \(updates) after \(clock.now - started)")
+expect(updates.first == ["Timestamp", "Data Size"] && updates.last == ["Stamp", "Timestamp", "Data Size"], "streamed results, got \(updates) after \(clock.now - started)")
 
 let brokenConfig = scratch.appendingPathComponent("broken.json")
 try Data("{\"parsers\": [".utf8).write(to: brokenConfig)
