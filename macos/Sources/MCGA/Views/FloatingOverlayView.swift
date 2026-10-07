@@ -45,6 +45,7 @@ final class FloatingOverlayPresenter {
             category: category,
             preferences: preferences,
             countdown: countdown,
+            maxHeight: screen.visibleFrame.height * 0.5,
             copy: copy,
             showHistory: showHistory
         ))
@@ -75,13 +76,14 @@ final class FloatingOverlayPresenter {
         min(view.fittingSize.height, screen.visibleFrame.height * 0.5)
     }
 
-    /// Stacks the panels upward from the bottom-right corner, oldest lowest.
+    /// Stacks the panels downward from the top-right corner, newest highest.
     private func layoutPanels(on screen: NSScreen) {
         let frame = screen.visibleFrame
         let marginRight = max(16, frame.width * 0.012)
         let gap = max(10, frame.height * 0.012)
-        var y = frame.minY + max(36, frame.height * 0.07)
-        for panel in panels {
+        var y = frame.maxY - max(16, frame.height * 0.012)
+        for panel in panels.reversed() {
+            y -= panel.frame.height
             let target = NSRect(origin: NSPoint(x: frame.maxX - Self.width - marginRight, y: y), size: panel.frame.size)
             if panel.isVisible {
                 NSAnimationContext.runAnimationGroup { _ in
@@ -90,7 +92,7 @@ final class FloatingOverlayPresenter {
             } else {
                 panel.setFrame(target, display: false)
             }
-            y += panel.frame.height + gap
+            y -= gap
         }
     }
 
@@ -125,39 +127,42 @@ struct FloatingOverlayView: View {
     @ObservedObject var preferences: AppPreferences
     /// Observed only by the bar, so ticks do not redraw the selectable text.
     let countdown: OverlayCountdown
+    let maxHeight: CGFloat
     let copy: (String) -> Void
     let showHistory: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                header
-                if let primary = results.first {
-                    let kind = category(primary.parserName)
-                    VStack(alignment: .leading, spacing: 8) {
-                        ParserBadge(name: primary.parserName, isPrimary: true)
-                        // Formatted data parsers only describe the input in `parsed`; the content follows it.
-                        ResultTextView(
-                            text: kind == .dataFormat ? primary.parsed : kind.content(parsed: primary.parsed, details: primary.details),
-                            showsFields: kind.showsFields,
-                            headlineSize: 16,
-                            selectableInPanel: true,
-                            maxLines: 8
-                        )
-                        if kind == .dataFormat, let details = primary.details {
-                            ResultTextView(text: details, showsFields: false, selectableInPanel: true, maxLines: 12)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    header
+                    ForEach(results) { result in
+                        let kind = category(result.parserName)
+                        if result.id != results.first?.id {
+                            Divider()
                         }
+                        VStack(alignment: .leading, spacing: 8) {
+                            ParserBadge(name: result.parserName, isPrimary: result.id == results.first?.id)
+                            // Formatted data parsers only describe the input in `parsed`; the content follows it.
+                            ResultTextView(
+                                text: kind == .dataFormat ? result.parsed : kind.content(parsed: result.parsed, details: result.details),
+                                showsFields: kind.showsFields,
+                                headlineSize: 16,
+                                selectableInPanel: true
+                            )
+                            if kind == .dataFormat, let details = result.details {
+                                ResultTextView(text: details, showsFields: false, selectableInPanel: true)
+                            }
+                        }
+                        .padding(.trailing, 4)
                     }
-                    .padding(.trailing, 4)
                 }
-                if results.count > 1 {
-                    moreResultsButton
-                }
+                .padding(.leading, 14)
+                .padding(.trailing, 10)
+                .padding(.top, 12)
+                .padding(.bottom, 14)
             }
-            .padding(.leading, 14)
-            .padding(.trailing, 10)
-            .padding(.top, 12)
-            .padding(.bottom, 14)
+            .frame(maxHeight: maxHeight - 3)
 
             CountdownBar(countdown: countdown)
         }
@@ -204,26 +209,6 @@ struct FloatingOverlayView: View {
             .buttonStyle(InteractiveIconButtonStyle())
             .help(preferences.text(.copyFirstResult))
         }
-    }
-
-    private var moreResultsButton: some View {
-        var names: [String] = []
-        for result in results.dropFirst() where !names.contains(result.parserName) {
-            names.append(result.parserName)
-        }
-        return Button {
-            showHistory()
-        } label: {
-            HStack(spacing: 4) {
-                Text(String(format: preferences.text(.moreResults), results.count - 1, names.joined(separator: ", ")))
-                    .lineLimit(1)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(Color.accentText)
-        }
-        .buttonStyle(.plain)
     }
 }
 

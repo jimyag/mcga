@@ -18,9 +18,11 @@ final class ClipboardModel: ObservableObject {
     var onResults: ((UInt64, String, [ParseResult]) -> Void)?
 
     private let preferences: AppPreferences
+    private let pasteboard: NSPasteboard
+    private let historyStore: HistoryStore
     private var customParserConfigDate: Date?
     private var timer: Timer?
-    private var lastChangeCount = NSPasteboard.general.changeCount
+    private var lastChangeCount: Int
     /// The clipboard text now, whether copied elsewhere or by MCGA; copying it again is not a new copy.
     private var currentContent = ""
     /// The text before the current copy, for the b64 and db64 keywords.
@@ -40,10 +42,18 @@ final class ClipboardModel: ObservableObject {
         engine.parserCategories[name] ?? .text
     }
 
-    init(preferences: AppPreferences) {
+    init(
+        preferences: AppPreferences,
+        pasteboard: NSPasteboard = .general,
+        historyStore: HistoryStore = .shared,
+        engine: ParserEngine? = nil
+    ) {
         self.preferences = preferences
+        self.pasteboard = pasteboard
+        self.historyStore = historyStore
+        self.lastChangeCount = pasteboard.changeCount
         self.customParserConfigDate = Self.customParserConfigDate()
-        self.engine = ParserEngine(language: preferences.language.parserLanguage)
+        self.engine = engine ?? ParserEngine(language: preferences.language.parserLanguage)
     }
 
     func start() {
@@ -62,14 +72,14 @@ final class ClipboardModel: ObservableObject {
 
     func clearHistory() {
         Task {
-            await HistoryStore.shared.clear()
+            await historyStore.clear()
             refreshHistory()
         }
     }
 
     func refreshHistory() {
         Task {
-            let entries = await HistoryStore.shared.allRecent(retentionDays: preferences.historyRetentionDays)
+            let entries = await historyStore.allRecent(retentionDays: preferences.historyRetentionDays)
             await MainActor.run {
                 self.history = entries
             }
@@ -78,21 +88,21 @@ final class ClipboardModel: ObservableObject {
 
     func promoteHistoryEntry(id: UInt64) {
         Task {
-            await HistoryStore.shared.promote(id: id, retentionDays: preferences.historyRetentionDays)
+            await historyStore.promote(id: id, retentionDays: preferences.historyRetentionDays)
             refreshHistory()
         }
     }
 
     func deleteHistoryEntry(id: UInt64) {
         Task {
-            await HistoryStore.shared.delete(id: id)
+            await historyStore.delete(id: id)
             refreshHistory()
         }
     }
 
     func setPinned(_ pinned: Bool, forEntry id: UInt64) {
         Task {
-            await HistoryStore.shared.setPinned(id: id, pinned)
+            await historyStore.setPinned(id: id, pinned)
             refreshHistory()
         }
     }
@@ -117,17 +127,15 @@ final class ClipboardModel: ObservableObject {
         copy(.text(value))
     }
 
-    /// Text taken out of the overlay is new, unlike a copy from history, so history records and
-    /// parses it as any copy, without an overlay of its own.
+    /// Text taken out of the overlay is a new copy: parse it, record it, and show its results.
     func copyAndRecord(_ value: String) {
         if !isPaused, value != currentContent {
-            parse(value, showsOverlay: false)
+            parse(value)
         }
         copy(value)
     }
 
     func copy(_ payload: ClipboardPayload) {
-        let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         switch payload {
         case .text(let value):
@@ -142,8 +150,8 @@ final class ClipboardModel: ObservableObject {
             }
         }
         lastChangeCount = pasteboard.changeCount
-        // MCGA's own copy is not parsed, but it is the clipboard now: copying the earlier text
-        // again, such as a generator keyword, parses it, and b64 or db64 act on this value.
+        // Skip the polling echo of this write; overlay copies already started their parse.
+        // History copies still become the previous value for the b64 and db64 keywords.
         if case .text(let value) = payload {
             currentContent = value
             previousContent = value
@@ -163,7 +171,6 @@ final class ClipboardModel: ObservableObject {
 
     private func pollClipboard() {
         guard !isPaused else { return }
-        let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 
@@ -183,11 +190,8 @@ final class ClipboardModel: ObservableObject {
         parse(text)
     }
 
-    private func parse(_ content: String, showsOverlay: Bool = true) {
-        // Without an overlay the generation stays, so the overlay on screen still gets its slow results.
-        if showsOverlay {
-            parseGeneration &+= 1
-        }
+    private func parse(_ content: String) {
+        parseGeneration &+= 1
         let generation = parseGeneration
         let previous = previousContent
         previousContent = content
@@ -202,13 +206,13 @@ final class ClipboardModel: ObservableObject {
         Task {
             var historyID: UInt64?
             for await results in updates {
-                if showsOverlay, generation == parseGeneration, !results.isEmpty {
+                if generation == parseGeneration, !results.isEmpty {
                     onResults?(generation, content, results)
                 }
                 if let historyID {
-                    await HistoryStore.shared.setResults(id: historyID, results: results)
+                    await historyStore.setResults(id: historyID, results: results)
                 } else {
-                    historyID = await HistoryStore.shared.append(original: content, results: results, retentionDays: retentionDays)
+                    historyID = await historyStore.append(original: content, results: results, retentionDays: retentionDays)
                 }
                 refreshHistory()
             }
@@ -257,11 +261,12 @@ final class ClipboardModel: ObservableObject {
     private func appendImageHistory(_ data: Data) {
         parseGeneration &+= 1
         currentContent = ""
-        let directory = HistoryStore.shared.assetsDirectory
+        let historyStore = historyStore
+        let directory = historyStore.assetsDirectory
         let retentionDays = preferences.historyRetentionDays
         Task.detached(priority: .utility) { [weak self] in
             guard let image = HistoryImage.save(data, in: directory) else { return }
-            await HistoryStore.shared.append(
+            await historyStore.append(
                 kind: .image,
                 originalPreview: "Image \(image.pixelWidth) x \(image.pixelHeight)",
                 attachment: HistoryAttachment(
@@ -281,11 +286,12 @@ final class ClipboardModel: ObservableObject {
     private func appendFileHistory(_ urls: [URL]) {
         parseGeneration &+= 1
         currentContent = ""
-        let directory = HistoryStore.shared.assetsDirectory
+        let historyStore = historyStore
+        let directory = historyStore.assetsDirectory
         let retentionDays = preferences.historyRetentionDays
         Task.detached(priority: .utility) { [weak self] in
             for url in urls {
-                await HistoryStore.shared.append(
+                await historyStore.append(
                     kind: .file,
                     originalPreview: "\(url.lastPathComponent)\n\(url.path)",
                     attachment: Self.fileAttachment(url, previewsIn: directory),

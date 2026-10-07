@@ -587,7 +587,6 @@ enum TextKey {
     case pasteResult
     case pasteOriginalInto
     case pasteResultInto
-    case moreResults
     case openInHistory
     case details
     case kindText
@@ -756,8 +755,6 @@ enum TextKey {
         case (.en, .pasteOriginalInto): "Paste original into %@"
         case (.zh, .pasteResultInto): "粘贴结果到 %@"
         case (.en, .pasteResultInto): "Paste result into %@"
-        case (.zh, .moreResults): "另外 %d 个结果：%@"
-        case (.en, .moreResults): "%d more: %@"
         case (.zh, .openInHistory): "在历史中打开"
         case (.en, .openInHistory): "Open in history"
         case (.zh, .details): "详细信息"
