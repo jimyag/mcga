@@ -39,6 +39,12 @@ final class FloatingOverlayPresenter {
         }
 
         let countdown = OverlayCountdown()
+        let panel = NonActivatingOverlayPanel(
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 0),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
         let hostingView = NSHostingView(rootView: FloatingOverlayView(
             content: content,
             results: results,
@@ -47,14 +53,13 @@ final class FloatingOverlayPresenter {
             countdown: countdown,
             maxHeight: screen.visibleFrame.height * 0.5,
             copy: copy,
-            showHistory: showHistory
+            showHistory: showHistory,
+            close: { [weak self, weak panel] in
+                guard let self, let panel else { return }
+                dismiss(panel, on: screen)
+            }
         ))
-        let panel = NonActivatingOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: fittingHeight(of: hostingView, on: screen)),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
+        panel.setContentSize(NSSize(width: Self.width, height: fittingHeight(of: hostingView, on: screen)))
         panel.becomesKeyOnlyIfNeeded = true
         panel.level = .floating
         panel.isReleasedWhenClosed = false
@@ -76,15 +81,21 @@ final class FloatingOverlayPresenter {
         min(view.fittingSize.height, screen.visibleFrame.height * 0.5)
     }
 
-    /// Stacks the panels downward from the top-right corner, newest highest.
+    private func dismiss(_ panel: NSPanel, on screen: NSScreen) {
+        panel.orderOut(nil)
+        panels.removeAll { $0 === panel }
+        layoutPanels(on: screen)
+    }
+
+    /// Stacks the panels downward near the top-right notification area, newest highest.
     private func layoutPanels(on screen: NSScreen) {
         let frame = screen.visibleFrame
-        let marginRight = max(16, frame.width * 0.012)
+        let margin: CGFloat = 8
         let gap = max(10, frame.height * 0.012)
-        var y = frame.maxY - max(16, frame.height * 0.012)
+        var y = frame.maxY - margin
         for panel in panels.reversed() {
             y -= panel.frame.height
-            let target = NSRect(origin: NSPoint(x: frame.maxX - Self.width - marginRight, y: y), size: panel.frame.size)
+            let target = NSRect(origin: NSPoint(x: frame.maxX - Self.width - margin, y: y), size: panel.frame.size)
             if panel.isVisible {
                 NSAnimationContext.runAnimationGroup { _ in
                     panel.animator().setFrame(target, display: true)
@@ -111,10 +122,8 @@ final class FloatingOverlayPresenter {
                     countdown.remaining = fraction
                 }
             }
-            panel?.orderOut(nil)
-            guard let self else { return }
-            panels.removeAll { $0 === panel }
-            layoutPanels(on: screen)
+            guard let self, let panel else { return }
+            dismiss(panel, on: screen)
         }
     }
 }
@@ -130,12 +139,17 @@ struct FloatingOverlayView: View {
     let maxHeight: CGFloat
     let copy: (String) -> Void
     let showHistory: () -> Void
+    let close: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.leading, 14)
+                .padding(.trailing, 10)
+                .padding(.top, 12)
+                .padding(.bottom, 10)
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    header
                     ForEach(results) { result in
                         let kind = category(result.parserName)
                         if result.id != results.first?.id {
@@ -159,14 +173,13 @@ struct FloatingOverlayView: View {
                 }
                 .padding(.leading, 14)
                 .padding(.trailing, 10)
-                .padding(.top, 12)
                 .padding(.bottom, 14)
             }
-            .frame(maxHeight: maxHeight - 3)
 
             CountdownBar(countdown: countdown)
         }
         .frame(width: FloatingOverlayPresenter.width)
+        .frame(maxHeight: maxHeight)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.regularMaterial)
@@ -208,6 +221,14 @@ struct FloatingOverlayView: View {
             }
             .buttonStyle(InteractiveIconButtonStyle())
             .help(preferences.text(.copyFirstResult))
+
+            Button(action: close) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(InteractiveIconButtonStyle())
+            .help(preferences.text(.close))
+            .accessibilityLabel(preferences.text(.close))
         }
     }
 }

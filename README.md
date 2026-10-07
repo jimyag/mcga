@@ -17,7 +17,7 @@ Clipboard parser for macOS and Windows. MCGA watches the clipboard, runs built-i
   - Copied images are kept at full size, so copying them back from history loses nothing.
   - Parser results follow the interface language.
   - The popup can be turned off, its duration set, and each parser set to keep its results in history only.
-  - Popups stack downward from the top-right corner, with the newest on top. Each shows every matching result directly; long output scrolls within half the screen height.
+  - Popups stack downward near the top-right notification area, inset 8 points from the available screen edges, with the newest on top. Each shows every matching result directly; long output scrolls within half the screen height. Header controls stay visible while scrolling, and the close button dismisses only that popup.
   - Selecting text in the popup copies it. Copying or pasting a result, from the popup or from history, takes the whole result: all of a custom command's output, or formatted data without its summary line.
   - New text copied from the popup, by selecting it or with the copy button, is parsed again, joins history, and opens a popup when it matches. Copies from history do not trigger parsing.
   - Custom command parsers and the network parsers (IP, DNS) run after the others, and their results join the popup and history as they arrive.

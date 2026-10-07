@@ -30,7 +30,7 @@ struct FloatingOverlayCheck {
         let hosting = NSHostingView(rootView: FloatingOverlayView(
             content: "las-tky3", results: [first], category: { _ in .custom },
             preferences: AppPreferences(), countdown: OverlayCountdown(), maxHeight: 400,
-            copy: { _ in }, showHistory: {}
+            copy: { _ in }, showHistory: {}, close: {}
         ))
         let window = NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
         window.contentView = hosting
@@ -86,16 +86,30 @@ struct FloatingOverlayCheck {
         let newest = panels.first { ($0.contentView as? NSHostingView<FloatingOverlayView>)?.rootView.content == "placement-2" }!
         let older = panels.first { ($0.contentView as? NSHostingView<FloatingOverlayView>)?.rootView.content == "placement-1" }!
         let visible = screen.visibleFrame
-        let top = visible.maxY - max(16, visible.height * 0.012)
-        let right = visible.maxX - max(16, visible.width * 0.012)
+        let top = visible.maxY - 8
+        let right = visible.maxX - 8
         let gap = max(10, visible.height * 0.012)
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
         while abs(newest.frame.maxY - top) > 1 || abs(older.frame.maxY - (newest.frame.minY - gap)) > 1 {
             guard ContinuousClock.now < deadline else { fatalError("Panels did not stack downward from the top-right corner") }
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }
-        assert(abs(newest.frame.maxX - right) <= 1 && abs(older.frame.maxX - right) <= 1, "Panels must align to the right edge")
-        print("PASS: all results, full custom output, scrollable height limit, and top-right panels with newest above older")
+        assert(abs(newest.frame.maxX - right) <= 1 && abs(older.frame.maxX - right) <= 1, "Panels must stay 8 points from the right edge")
+        let newestView = newest.contentView as! NSHostingView<FloatingOverlayView>
+        newestView.rootView.close()
+        assert(!newest.isVisible && older.isVisible, "Close must immediately dismiss only its own panel")
+        presenter.show(
+            id: 2, content: "placement-2", results: [first, region], lifetime: 30,
+            category: { _ in .custom }, preferences: hosting.rootView.preferences,
+            copy: { _ in }, showHistory: {}
+        )
+        assert(!newest.isVisible, "Late results must not reopen a dismissed panel")
+        let closeDeadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while abs(older.frame.maxY - top) > 1 {
+            guard ContinuousClock.now < closeDeadline else { fatalError("Remaining panel did not move up after close") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        print("PASS: all results, scrolling, top-right placement, immediate close, remaining panel layout, and no reopening for late results")
     }
 
     @MainActor
